@@ -1,0 +1,8 @@
+#ignore __vm, Debug directories
+.idea/
+PyBus\ Modbus\ Scanner/
+PyBus\ Modbus\ Scanner\ Slim/
+__pycache__/
+#.vs/
+#mc_programs/mb_gw_os/__vm/Configuration.Release.vmps.xml
+#mc_programs/mb_gw_os/__vm/Upload.vmps.xml
