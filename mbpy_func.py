@@ -52,7 +52,7 @@ def to_bw(x):
 
 def fun_bw(x):
     x = int(x)
-    if x not in (3, 4, 5, 6, 16):  # still need to add reading coils
+    if x not in (1, 2, 3, 4, 5, 6, 16):  # still need to add reading coils
         raise argparse.ArgumentTypeError("ILLEGAL MODBUS FUNCTION")
     return x
 
@@ -81,17 +81,21 @@ def printfunc(verb, i, rws, flg_lp, validi, pbl, p, opt='', msg=0):  # prints er
 
 
 class ModbusData():
-    def __init__(self, strt, bs, ws, pr, dtype, func):
+    def __init__(self, strt, lgth, bs, ws, pr, dtype, func):
         self.func = func
-        if self.func in (3, 6):
+
+        if self.func == 1:
+            self.strt = strt
+        elif self.func in (2, 5):
+            self.strt = strt + 10000
+        elif self.func in (3, 6):
             self.strt = strt + 40000
         elif self.func == 4:
             self.strt = strt + 30000
-        elif self.func == 5:
-            self.strt = strt + 10000
         else:
             self.strt = strt
 
+        self.lgth = lgth
         self.bs = bs
         self.ws = ws
         self.pr = pr
@@ -109,7 +113,20 @@ class ModbusData():
     def reg(self, pckt):
         i = self.strt
         regs = []
-        
+
+        if self.func in (1, 2):
+            for bitCoils in pckt:
+                for j in range(8):
+                    self.valarr.append((bitCoils >> j) & 0x1)
+
+                    if self.pr is not None:
+                        if self.pr in (1, 3):
+                            print('\x1b[2K', end='\r')
+                        print(i, ":", self.valarr[-1])
+                    i += 1
+                    if i >= self.lgth + self.strt:
+                        return
+
         if self.bs:
             pckt[::2], pckt[1::2] = pckt[1::2], pckt[::2]
 
@@ -124,6 +141,7 @@ class ModbusData():
                     print('\x1b[2K', end='\r')
                 print('Wrote', self.strt, ":", self.valarr[-1])
             return
+
         if self.dtype in ('uint8', 'sint8'):
             for r0 in regs:
                 if self.dtype == 'uint8':
@@ -367,7 +385,9 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
     else:
         lng = len_bw(lng)  # check if lng is in correct interval
 
-        if t in ('uint32', 'sint32', 'float', 'mod1k', 'mod10k'):
+        if func in (1, 2):
+            pass
+        elif t in ('uint32', 'sint32', 'float', 'mod1k', 'mod10k'):
             lng *= 2
         elif t is 'mod20k':
             lng *= 3
@@ -376,7 +396,10 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
         elif t in ('uint8', 'sint8'):
             lng = (lng + 1) // 2
 
-        ret_lng = 5 + lng * 2  # number of bytes expected in return for com port
+        if func in (1, 2):
+            ret_lng = 5 + ((lng + 7) // 8)  # number of bytes converted from number of bits
+        else:
+            ret_lng = 5 + lng * 2  # number of bytes expected in return for com port
 
     # check if zero based and starting register will work
     strtz = strt - (not zbased)
@@ -424,7 +447,9 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                 if verb == 0:
                     verb = None
         else:
-            if t in ('uint8', 'sint8'):
+            if func in (1, 2):
+                rws = lng + 1
+            elif t in ('uint8', 'sint8'):
                 rws = lng * 2 + 1
             elif t in ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
                 rws = lng + 1
@@ -449,7 +474,7 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
         pbl = 0
 
     # vallst = 0
-    mbdata = ModbusData(strt, bs, ws, verb, t, func)
+    mbdata = ModbusData(strt, lng, bs, ws, verb, t, func)
 
     if filename is not None:
         try:
@@ -458,7 +483,9 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
             return mberrs[105]
         else:
             fwriter = csv.writer(csvfile)
-            if t in ('uint8', 'sint8'):
+            if func in (1, 2):
+                hdr = range(strtz, strtz + lng)
+            elif t in ('uint8', 'sint8'):
                 hdr = [x / 2 + strtz for x in range(0, lng * 2)]  # should work
             elif t in ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
                 hdr = range(strtz, strtz + lng)
@@ -709,7 +736,7 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                             if packetrec[2] in mberrs:
                                 mbdata.valarr = mberrs[packetrec[2]]  # MODBUS ERROR RETURNED
                             else:
-                                mbdata.valarr = ('Err', packetrec[2], 'UNKOWN ERROR')
+                                mbdata.valarr = ('Err', packetrec[2], 'UNKNOWN ERROR')
 
                             printfunc(verb, i, rws, flg_lp, validi, pbl, p, 'err', packetrec[2])
                         else:
