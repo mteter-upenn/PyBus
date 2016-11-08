@@ -288,7 +288,12 @@ mberrs = {1: ('Err', 1, 'ILLEGAL FUNCTION'), 2: ('Err', 2, 'ILLEGAL DATA ADDRESS
           110: ('Err', 110, 'UNEXPECTED MODBUS FUNCTION RETURNED'),
           111: ('Err', 111, 'UNEXPECTED MODBUS SLAVE DEVICE MESSAGE'),
           112: ('Err', 112, 'MULTIPLE POLLS FOR WRITE COMMAND'),
-          113: ('Err', 113, 'CRC INCORRECT, DATA TRANSMISSION FAILURE')}
+          113: ('Err', 113, 'CRC INCORRECT, DATA TRANSMISSION FAILURE'),
+          224: ('Err', 224, 'GATEWAY: INVALID SLAVE ID'),
+          225: ('Err', 225, 'GATEWAY: RETURNED FUNCTION DOES NOT MATCH'),
+          226: ('Err', 226, 'GATEWAY: GATEWAY TIMEOUT'),
+          227: ('Err', 227, 'GATEWAY: INVALID CRC'),
+          228: ('Err', 228, 'GATEWAY: INVALID CLIENT')}  # ? don't know what i was thinking
 
 
 # run script
@@ -622,6 +627,7 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                 if cmpt is not None:  # COM port
                     ser.write(packet)  # send msg
                 else:
+                    # clear Rx buffer !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     conn.sendall(packet)  # send modbus request
 
                 if verb in (1, 3):
@@ -697,7 +703,6 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                     else:  # select timed out
                         mbdata.valarr = mberrs[87]
                         skip = True
-
                         printfunc(verb, i, rws, flg_lp, validi, pbl, p, 'to')
 
                 if not skip:
