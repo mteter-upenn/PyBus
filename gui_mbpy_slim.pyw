@@ -18,6 +18,41 @@ from tkinter.ttk import Combobox
 # from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
+def merge_dicts(*dict_args):
+    """
+    Given any number of dicts, shallow copy and merge into a new dict,
+    precedence goes to key value pairs in latter dicts.
+    """
+    result = {}
+    for dictionary in dict_args:
+        result.update(dictionary)
+    return result
+
+
+one_byte_frmt_list = ('uint8', 'sint8')
+two_byte_frmt_list = ('uint16', 'sint16', 'sm1k16', 'sm10k16', 'bin', 'hex', 'ascii')
+four_byte_frmt_list = ('uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32', 'sm10k32', 'float')
+six_byte_frmt_list = ('uint48', 'um1k48', 'sm1k48', 'um10k48', 'sm10k48')  # 'sint48' is not supported
+eight_byte_frmt_list = ('uint64', 'sint64', 'um1k64', 'sm1k64', 'um10k64', 'sm10k64', 'dbl', 'engy')
+
+one_byte_formats = {'Unsigned Integer 8 bit': 'uint8', 'Signed Integer 8 Bit': 'sint8'}
+two_byte_formats = {'Binary 16 Bit': 'bin', 'Hexadecimal 16 Bit': 'hex', 'ASCII 16 Bit': 'ascii',
+                    'Unsigned Integer 16 Bit': 'uint16', 'Signed Integer 16 Bit': 'sint16',
+                    'Signed Mod 1K 16 Bit': 'sm1k16', 'Signed Mod 10K 16 Bit': 'sm10k16'}
+four_byte_formats = {'Float 32 Bit': 'float', 'Unsigned Integer 32 Bit': 'uint32', 'Signed Integer 32 Bit': 'sint32',
+                     'Unsigned Mod 1K 32 Bit': 'um1k32', 'Signed Mod 1K 32 Bit': 'sm1k32',
+                     'Unsigned Mod 10K 32 Bit': 'um10k32', 'Signed Mod 10K 32 Bit': 'sm10k32'}
+six_byte_formats = {'Unsigned Integer 48 Bit': 'uint48', 'Unsigned Mod 1K 48 Bit': 'um1k48',
+                    'Signed Mod 1K 48 Bit': 'sm1k48', 'Unsigned Mod 10K 48 Bit':'um10k48',
+                    'Signed Mod 10K 48 Bit': 'sm10k48'}  # 'sint48' is not supported
+eight_byte_formats = {'Double 64 Bit': 'dbl', 'Eaton Energy 64 Bit': 'engy', 'Unsigned Integer 64 Bit': 'uint64',
+                      'Signed Integer 64 Bit': 'sint64', 'Unsigned Mod 1K 64 Bit': 'um1k64',
+                      'Signed Mod 1K 64 Bit': 'sm1k64', 'Unsigned Mod 10K 64 Bit': 'um10k64',
+                      'Signed Mod 10K 64 Bit': 'sm10k64'}
+
+dtypes = merge_dicts(one_byte_formats, two_byte_formats, four_byte_formats, six_byte_formats, eight_byte_formats)
+
+
 def chng_state(childlist, stt):
     for child in childlist:
         try:
@@ -115,8 +150,8 @@ class InputApp:
         Label(self.input_frame, text='Port:').grid(row=0, column=4, sticky=W)
 
     # Entry widgets
-        self.e_ip = Entry(self.input_frame, textvariable=self.v_ip)
-        self.e_dev = Entry(self.input_frame, textvariable=self.v_dev)
+        self.e_ip = Entry(self.input_frame, width=22, textvariable=self.v_ip)
+        self.e_dev = Entry(self.input_frame, width=22, textvariable=self.v_dev)
         self.e_sreg = Entry(self.input_frame, width=6, textvariable=self.v_sreg)
         self.e_lreg = Entry(self.input_frame, width=6, textvariable=self.v_lreg)
         self.e_pd = Entry(self.input_frame, width=6, textvariable=self.v_pd)
@@ -126,7 +161,7 @@ class InputApp:
         ch_ws = Checkbutton(self.input_frame, variable=self.v_ws)
         self.ch_gt = Checkbutton(self.input_frame, variable=self.v_gt, state=DISABLED)
     # Combobox widget
-        c_dtype = Combobox(self.input_frame, width=17, height=11, textvariable=self.v_dtype)
+        c_dtype = Combobox(self.input_frame, width=21, height=11, textvariable=self.v_dtype)
     # Button widgets
         self.b_start = Button(butn_frame, text='Start Polling', width=15, state=DISABLED, command=self.makeframe)
         self.b_end = Button(butn_frame, text='Stop Polling', width=15, state=DISABLED, command=self.killframe)
@@ -138,10 +173,22 @@ class InputApp:
         self.e_lreg.insert(0, 1)
         self.e_prt.insert(0, 502)
     # Combobox defualt values
-        c_dtype['values'] = ('Binary', 'Hex', 'ASCII', 'Unsigned Int 16', 'Signed Int 16', 'Unsigned Int 32',
-                             'Signed Int 32', 'Float', 'Mod1k', 'Mod10k', 'Mod20k', 'Mod30k', 'Unsigned Int 64',
-                             'Energy', 'Double')
-        c_dtype.current(7)
+    #     c_dtype['values'] = ('Binary', 'Hex', 'ASCII', 'Unsigned Int 16', 'Signed Int 16', 'Unsigned Int 32',
+    #                          'Signed Int 32', 'Float', 'Mod1k', 'Mod10k', 'Mod20k', 'Mod30k', 'Unsigned Int 64',
+    #                          'Energy', 'Double')
+        c_dtype['values'] = ('Binary 16 Bit', 'Hexadecimal 16 Bit', 'ASCII 16 Bit', 'Float 32 Bit', 'Double 64 Bit',
+                             'Eaton Energy 64 Bit',
+                             'Unsigned Integer  8 Bit', 'Unsigned Integer 16 Bit', 'Unsigned Integer 32 Bit',
+                             'Unsigned Integer 48 Bit', 'Unsigned Integer 64 Bit',
+                             'Signed Integer  8 Bit', 'Signed Integer 16 Bit', 'Signed Integer 32 Bit',
+                             'Signed Integer 48 Bit', 'Signed Integer 64 Bit',
+                             'Unsigned Mod 1K 32 Bit', 'Unsigned Mod 1K 48 Bit', 'Unsigned Mod 1K 64 Bit',
+                             'Signed Mod 1K 16 Bit', 'Signed Mod 1K 32 Bit', 'Signed Mod 1K 48 Bit',
+                             'Signed Mod 1K 64 Bit',
+                             'Unsigned Mod 10K 32 Bit', 'Unsigned Mod 10K 48 Bit', 'Unsigned Mod 10K 64 Bit',
+                             'Signed Mod 10K 16 Bit', 'Signed Mod 10K 32 Bit', 'Signed Mod 10K 48 Bit',
+                             'Signed Mod 10K 64 Bit')
+        c_dtype.current(3)
 
     # Label widget grid
         self.l_reg.grid(row=1, column=2, sticky=W)
@@ -634,11 +681,11 @@ class DisplayApp:
         self.run_poller(False)
 
     def mk_lbls(self, strt, cnt):
-        if self.typ in ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
+        if self.typ in two_byte_frmt_list:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
             mlt = 1
-        elif self.typ in ('uint32', 'sint32', 'float', 'mod10k'):
+        elif self.typ in four_byte_frmt_list:  # ('uint32', 'sint32', 'float', 'mod10k'):
             mlt = 2
-        elif self.typ in ('mod20k'):
+        elif self.typ in six_byte_frmt_list:  # ('mod20k'):
             mlt = 3
         else:  # ('mod30k', 'uint64', 'engy', 'dbl')
             mlt = 4
@@ -905,10 +952,10 @@ class ThreadedTask(threading.Thread):
         self.queue.put((1, otpt))
 
 
-dtypes = {'Binary': 'bin', 'Hex': 'hex', 'ASCII': 'ascii', 'Unsigned Int 16': 'uint16', 'Signed Int 16': 'sint16',
-          'Unsigned Int 32': 'uint32', 'Signed Int 32': 'sint32', 'Float': 'float', 'Mod1k': 'mod1k',
-          'Mod10k': 'mod10k', 'Mod20k': 'mod20k', 'Unsigned Int 64': 'uint64', 'Mod30k': 'mod30k', 'Energy': 'engy',
-          'Double': 'dbl'}
+# dtypes = {'Binary': 'bin', 'Hex': 'hex', 'ASCII': 'ascii', 'Unsigned Int 16': 'uint16', 'Signed Int 16': 'sint16',
+#           'Unsigned Int 32': 'uint32', 'Signed Int 32': 'sint32', 'Float': 'float', 'Mod1k': 'mod1k',
+#           'Mod10k': 'mod10k', 'Mod20k': 'mod20k', 'Unsigned Int 64': 'uint64', 'Mod30k': 'mod30k', 'Energy': 'engy',
+#           'Double': 'dbl'}
 
 # matplotlib.use('TkAgg')
 
@@ -922,8 +969,9 @@ if os.name == 'nt':
     icopath = os.getcwd() + '/resources/Upenn16.ico'
     root.iconbitmap(icopath)
 else:
-    icopath = os.getcwd() + '/resources/Upenn64.png'
-    root.iconphoto(True, PhotoImage)
+    pass
+    # icopath = os.getcwd() + '/resources/Upenn64.png'
+    # root.iconphoto(True, PhotoImage)
 
 
 # disp_app_rt = DisplayApp(root)
