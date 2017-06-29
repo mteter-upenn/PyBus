@@ -80,7 +80,7 @@ def printfunc(verb, i, rws, flg_lp, validi, pbl, p, opt='', msg=0):  # prints er
                 print()
 
 
-class ModbusData():
+class ModbusData:
     def __init__(self, strt, lgth, bs, ws, pr, dtype, func):
         self.func = func
 
@@ -142,7 +142,7 @@ class ModbusData():
                 print('Wrote', self.strt, ":", self.valarr[-1])
             return
 
-        if self.dtype in ('uint8', 'sint8'):
+        if self.dtype in one_byte_formats:  # ('uint8', 'sint8'):
             for r0 in regs:
                 if self.dtype == 'uint8':
                     self.valarr.append(r0 >> 8)
@@ -157,7 +157,7 @@ class ModbusData():
                     print(i, "  :", self.valarr[-2])
                     print(i + .5, ":", self.valarr[-1])
                     i += 1
-        elif self.dtype in ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
+        elif self.dtype in two_byte_formats:      # ('bin', 'hex', 'ascii', 'uint16', 'sint16', 'sm1k16', 'sm10k16'):
             for r0 in regs:  # , self.pckt[2::4], self.pckt[3::4]):
                 if self.dtype == 'bin':
                     # self.valarr.append(bin(r0))
@@ -175,13 +175,21 @@ class ModbusData():
                     self.valarr.append(r0)
                 elif self.dtype == 'sint16':
                     self.valarr.append(unpack('h', pack('H', r0))[0])
+                elif self.dtype in ('sm1k16', 'sm10k16'):
+                    if r0 >> 15 == 1:
+                        mplr = -1
+                    else:
+                        mplr = 1
+
+                    self.valarr.append((r0 & 0x7fff) * mplr)
 
                 if self.pr is not None:
                     if self.pr in (1, 3):
                         print('\x1b[2K', end='\r')
                     if self.dtype == 'bin':
                         # print(i, ":", format(self.valarr[-1], '#018b'))
-                        print(i, ": 0b", format((self.valarr[-1] >> 8) & 0xff, '08b'), format(self.valarr[-1] & 0xff, '08b'))
+                        print(i, ": 0b", format((self.valarr[-1] >> 8) & 0xff, '08b'),
+                              format(self.valarr[-1] & 0xff, '08b'))
                         self.valarr[-1] = bin(self.valarr[-1])
                     elif self.dtype == 'hex':
                         print(i, ":", format(self.valarr[-1], '#06x'))
@@ -189,7 +197,7 @@ class ModbusData():
                     else:
                         print(i, ":", self.valarr[-1])
                     i += 1
-        elif self.dtype in ('uint32', 'sint32', 'float', 'mod1k', 'mod10k'):
+        elif self.dtype in four_byte_formats:  # ('float', 'uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32','sm10k32'):
             if self.ws:
                 regs[::2], regs[1::2] = regs[1::2], regs[::2]
 
@@ -200,13 +208,17 @@ class ModbusData():
                     self.valarr.append(unpack('i', pack('I', (r1 << 16) | r0))[0])
                 elif self.dtype == 'float':
                     self.valarr.append(unpack('f', pack('I', (r1 << 16) | r0))[0])
-                elif self.dtype == 'mod1k':
+                elif self.dtype == 'um1k32':
+                    self.valarr.append(r1 * 1000 + r0)
+                elif self.dtype == 'sm1k32':
                     if (r1 >> 15) == 1:
                         r1 = (r1 & 0x7fff)
                         self.valarr.append((-1) * (r1 * 1000 + r0))
                     else:
                         self.valarr.append(r1 * 1000 + r0)
-                elif self.dtype == 'mod10k':
+                elif self.dtype == 'um10k32':
+                    self.valarr.append(r1 * 10000 + r0)
+                elif self.dtype == 'sm10k32':
                     if (r1 >> 15) == 1:
                         r1 = (r1 & 0x7fff)
                         self.valarr.append((-1) * (r1 * 10000 + r0))
@@ -218,35 +230,64 @@ class ModbusData():
                         print('\x1b[2K', end='\r')
                     print(i, ":", self.valarr[-1])
                     i += 2
-        elif self.dtype is 'mod20k':  # 3 byte unit
+        elif self.dtype in six_byte_formats:  # ('uint48', 'sint48', 'um1k48', 'sm1k48', 'um10k48', 'sm10k48'):
             if self.ws:
                 regs[::3], regs[2::3] = regs[2:3], regs[::3]
 
             for r0, r1, r2 in zip(regs[::3], regs[1::3], regs[2::3]):
-                if (r2 >> 15) == 1:
-                    r2 = (r2 & 0x7fff)
-                    self.valarr.append((-1) * ((r2 * (10**8)) + (r1 * 10000) + r0))
-                else:
+                if self.dtype == 'uint48':
+                    self.valarr.append((r2 << 32) | (r1 << 16) | r0)
+                elif self.dtype == 'sint48':
+                    pass
+                    #self.valarr.append(unpack('uintle:48', pack('uintle:48', (r2 << 32) | (r1 << 16) | r0))[0])
+                    #self.valarr.append(unpack('q', pack('Q', (0 << 48) | (r2 << 32) | (r1 << 16) | r0))[0])
+                elif self.dtype == 'um1k48':
+                    self.valarr.append((r2 * (10 ** 6)) + (r1 * 1000) + r0)
+                elif self.dtype == 'sm1k48':
+                    if (r2 >> 15) == 1:
+                        r2 = (r2 & 0x7fff)
+                        self.valarr.append((-1) * ((r2 * (10**6)) + (r1 * 1000) + r0))
+                    else:
+                        self.valarr.append((r2 * (10**6)) + (r1 * 1000) + r0)
+                elif self.dtype == 'um10k48':
                     self.valarr.append((r2 * (10**8)) + (r1 * 10000) + r0)
+                elif self.dtype == 'sm10k48':
+                    if (r2 >> 15) == 1:
+                        r2 = (r2 & 0x7fff)
+                        self.valarr.append((-1) * ((r2 * (10**8)) + (r1 * 10000) + r0))
+                    else:
+                        self.valarr.append((r2 * (10**8)) + (r1 * 10000) + r0)
 
-            if self.pr is not None:
-                if self.pr in (1, 3):
-                    print('\x1b[2K', end='\r')
-                print(i, ":", self.valarr[-1])
-                i += 2
-        else:  # ('mod30k', 'uint64', 'engy', 'dbl')
+                if self.pr is not None:
+                    if self.pr in (1, 3):
+                        print('\x1b[2K', end='\r')
+                    print(i, ":", self.valarr[-1])
+                    i += 2
+        else:  # ('uint64', 'sint64', 'um1k64', 'sm1k64', 'um10k64', 'sm10k64', 'engy', 'dbl')
             if self.ws:
                 regs[::4], regs[1::4], regs[2::4], regs[3::4] = regs[3::4], regs[2::4], regs[1::4], regs[::4]
 
             for r0, r1, r2, r3 in zip(regs[::4], regs[1::4], regs[2::4], regs[3::4]):
-                if self.dtype == 'mod30k':
+                if self.dtype == 'uint64':
+                    self.valarr.append((r3 << 48) | (r2 << 32) | (r1 << 16) | r0)
+                elif self.dtype == 'sint64':
+                    self.valarr.append(unpack('q', pack('Q', (r3 << 48) | (r2 << 32) | (r1 << 16) | r0))[0])
+                elif self.dtype == 'um1k64':
+                    self.valarr.append(r3 * (10 ** 9) + r2 * (10 ** 6) + r1 * 1000 + r0)
+                elif self.dtype == 'sm1k64':
                     if (r3 >> 15) == 1:
                         r3 = (r3 & 0x7fff)
-                        self.valarr.append((-1) * (r3 * (10**12) + r2 * (10**8) + r1 * 10000 + r0))
+                        self.valarr.append((-1) * (r3 * (10 ** 9) + r2 * (10 ** 6) + r1 * 1000 + r0))
                     else:
-                        self.valarr.append(r3 * (10**12) + r2 * (10**8) + r1 * 10000 + r0)
-                elif self.dtype == 'uint64':
-                    self.valarr.append((r3 << 48) | (r2 << 32) | (r1 << 16) | r0)
+                        self.valarr.append(r3 * (10 ** 9) + r2 * (10 ** 6) + r1 * 1000 + r0)
+                elif self.dtype == 'um10k64':
+                    self.valarr.append(r3 * (10 ** 12) + r2 * (10 ** 8) + r1 * 10000 + r0)
+                elif self.dtype == 'sm10k64':
+                    if (r3 >> 15) == 1:
+                        r3 = (r3 & 0x7fff)
+                        self.valarr.append((-1) * (r3 * (10 ** 12) + r2 * (10 ** 8) + r1 * 10000 + r0))
+                    else:
+                        self.valarr.append(r3 * (10 ** 12) + r2 * (10 ** 8) + r1 * 10000 + r0)
                 elif self.dtype == 'engy':
                     # split r3 into engineering and mantissa bytes THIS WILL NOT HANDLE MANTISSA - DOCUMENTATION DOES
                     # NOT EXIST ON HOW TO HANDLE IT WITH THEIR UNITS
@@ -267,8 +308,17 @@ class ModbusData():
 
 
 # list of type options
-type_lst = ('uint8', 'sint8', 'bin', 'hex', 'ascii', 'uint16', 'sint16', 'uint32', 'sint32', 'float', 'mod1k', 'mod10k', 'mod20k',
-            'mod30k', 'uint64', 'engy', 'dbl')
+one_byte_formats = ('uint8', 'sint8')
+two_byte_formats = ('uint16', 'sint16', 'sm1k16', 'sm10k16', 'bin', 'hex', 'ascii')
+four_byte_formats = ('uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32', 'sm10k32', 'float')
+six_byte_formats = ('uint48', 'um1k48', 'sm1k48', 'um10k48', 'sm10k48')  # 'sint48' is not supported
+eight_byte_formats = ('uint64', 'sint64', 'um1k64', 'sm1k64', 'um10k64', 'sm10k64', 'dbl', 'engy')
+# type_lst = ('bin', 'hex', 'ascii','uint8', 'sint8',
+#             'uint16', 'sint16', 'uint32', 'sint32', 'uint48', 'sint48', 'uint64', 'sint64',
+#             'sm1k16', 'um1k32', 'sm1k32', 'um1k48', 'sm1k48', 'um1k64', 'sm1k64',
+#             'sm10k16', 'um10k32', 'sm10k32', 'um10k48', 'sm10k48', 'um10k64', 'sm10k64',
+#             'float', 'dbl', 'engy')
+type_lst = one_byte_formats + two_byte_formats + four_byte_formats + six_byte_formats + eight_byte_formats
 
 # set flag to determine if from commandline or called function
 flg_cl = False
@@ -367,7 +417,6 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
         # if func not in (3, 4):
         #     return mberrs[1]  # illegal modbus function
 
-
     mb_to = mb_to / 1000  # convert from ms to s
 
     if func in (5, 6, 16):
@@ -392,14 +441,16 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
 
         if func in (1, 2):
             pass
-        elif t in ('uint32', 'sint32', 'float', 'mod1k', 'mod10k'):
+        elif t in four_byte_formats:  # ('float', 'uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32', 'sm10k32'):
             lng *= 2
-        elif t is 'mod20k':
+        elif t in six_byte_formats:  # ('uint48', 'sint48'):
             lng *= 3
-        elif t in ('mod30k', 'uint64', 'engy', 'dbl'):
+        elif t in eight_byte_formats:  # ('mod30k', 'uint64', 'engy', 'dbl'):
             lng *= 4
-        elif t in ('uint8', 'sint8'):
+        elif t in one_byte_formats:  # ('uint8', 'sint8'):
             lng = (lng + 1) // 2
+        else:
+            pass  # for single register formats
 
         if func in (1, 2):
             ret_lng = 5 + ((lng + 7) // 8)  # number of bytes converted from number of bits
@@ -454,15 +505,15 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
         else:
             if func in (1, 2):
                 rws = lng + 1
-            elif t in ('uint8', 'sint8'):
+            elif t in one_byte_formats:  # ('uint8', 'sint8'):
                 rws = lng * 2 + 1
-            elif t in ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
+            elif t in two_byte_formats:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
                 rws = lng + 1
-            elif t in ('uint32', 'sint32', 'float', 'mod1k', 'mod10k'):
+            elif t in four_byte_formats:  # ('uint32', 'sint32', 'float', 'mod1k', 'mod10k'):
                 rws = int(lng / 2 + 1)
-            elif t is 'mod20k':
+            elif t in six_byte_formats:  # 'mod20k':
                 rws = int(lng / 3 + 1)
-            else:  # ('uint64', 'mod30k', 'engy', 'dbl')
+            else:  # in eight_byte_formats:  # ('uint64', 'mod30k', 'engy', 'dbl')
                 rws = int(lng / 4 + 1)
             print('\n'*(rws + 1), end='')
     else:
@@ -490,13 +541,13 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
             fwriter = csv.writer(csvfile)
             if func in (1, 2):
                 hdr = range(strtz, strtz + lng)
-            elif t in ('uint8', 'sint8'):
+            elif t in one_byte_formats:  # ('uint8', 'sint8'):
                 hdr = [x / 2 + strtz for x in range(0, lng * 2)]  # should work
-            elif t in ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
+            elif t in two_byte_formats:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
                 hdr = range(strtz, strtz + lng)
-            elif t in ('uint32', 'sint32', 'float', 'mod1k', 'mod10k'):
+            elif t in four_byte_formats:  # ('uint32', 'sint32', 'float', 'mod1k', 'mod10k'):
                 hdr = range(strtz, strtz + lng)[::2]
-            elif t is 'mod20k':
+            elif t in six_byte_formats:  # 'mod20k':
                 hdr = range(strtz, strtz + lng)[::3]
             else:  # ('uint64', 'mod30k', 'engy', 'dbl')
                 hdr = range(strtz, strtz + lng)[::4]
@@ -567,7 +618,6 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
 
                 packet[19] = (47368 >> 8) & 0xFF
                 packet[20] = 47368 & 0xFF
-
 
                 # packet[5] = 15 & 0xff
                 # packet[10] = 0 & 0xff  # HIGH registers
@@ -758,7 +808,7 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                     p += 1
 
                 # sleep for the rest of poll delay
-                if (i != p + 1):
+                if i != p + 1:
                     time.sleep(max(0, start + pdelay / 1000 - time.time()))
 
             except KeyboardInterrupt:
@@ -811,7 +861,7 @@ if __name__ == '__main__':
 
     flg_cl = True
     testx = mb_poll(args.ip, args.dev, args.srt, args.lng, p=args.poll, t=args.typ, bs=args.byteswap, ws=args.wordswap,
-                 zbased=args.zbased, mb_to=args.timeout, filename=args.file, verb=args.verbose, port=args.port,
-                 pdelay=args.pdelay, func=args.func)
+                    zbased=args.zbased, mb_to=args.timeout, filename=args.file, verb=args.verbose, port=args.port,
+                    pdelay=args.pdelay, func=args.func)
 
     print(testx)

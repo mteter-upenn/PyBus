@@ -934,8 +934,8 @@ if os.name == 'nt':
     root.iconbitmap(icopath)
 else:
     pass
-    icopath = os.getcwd() + '/resources/Upenn64.png'
-    root.iconphoto(True, PhotoImage)
+    # icopath = os.getcwd() + '/resources/Upenn64.png'
+    # root.iconphoto(True, PhotoImage)
 
 
 # disp_app_rt = DisplayApp(root)
