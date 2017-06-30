@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from math import log10
 from mbpy.mbpy import mb_poll
 from time import (sleep, time)
 import threading
@@ -702,12 +703,15 @@ class DisplayApp:
         else:  # ('mod30k', 'uint64', 'engy', 'dbl')
             mlt = 4
 
+        last_reg = strt + cnt * mlt
+        num_digits = max(int(log10(last_reg)) + 1, 4)
+
         if self.func in (3, 6):
-            strt += 40000
+            strt += 4 * 10 ** num_digits # 40000
         elif self.func == 4:
-            strt += 30000
+            strt += 3 * 10 ** num_digits
         else:  # func 5
-            strt += 10000
+            strt += 1 * 10 ** num_digits
 
         if self.flg_gph:
             frm = self.gb_frm

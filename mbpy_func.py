@@ -8,6 +8,7 @@ import csv
 import os
 import serial
 import serial.tools.list_ports
+from math import log10
 # import sys
 from mbpy import mbcrc  # from folder import file
 from struct import pack, unpack
@@ -84,14 +85,26 @@ class ModbusData:
     def __init__(self, strt, lgth, bs, ws, pr, dtype, func):
         self.func = func
 
+        if dtype in two_byte_formats:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
+            mlt = 1
+        elif dtype in four_byte_formats:  # ('uint32', 'sint32', 'float', 'mod10k'):
+            mlt = 2
+        elif dtype in six_byte_formats:  # ('mod20k'):
+            mlt = 3
+        else:  # ('mod30k', 'uint64', 'engy', 'dbl')
+            mlt = 4
+
+        last_reg = strt + lgth * mlt
+        num_digits = max(int(log10(last_reg)) + 1, 4)
+
         if self.func == 1:
             self.strt = strt
         elif self.func in (2, 5):
-            self.strt = strt + 10000
+            self.strt = strt + 1 * 10 ** num_digits
         elif self.func in (3, 6):
-            self.strt = strt + 40000
+            self.strt = strt + 4 * 10 ** num_digits
         elif self.func == 4:
-            self.strt = strt + 30000
+            self.strt = strt + 3 * 10 ** num_digits
         else:
             self.strt = strt
 
