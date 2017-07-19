@@ -542,7 +542,7 @@ class DisplayApp:
             # self.queue = queue.Queue()
             self.chk_tm = time()
 
-            ThreadedTask(self.queue, self.ip, self.dev, self.strt, self.lgth, self.dtype, self.bs, self.ws, self.pd,
+            ModbusPollThreadedTask(self.queue, self.ip, self.dev, self.strt, self.lgth, self.dtype, self.bs, self.ws, self.pd,
                          int((self.chk_tm - time()) * 1000) + self.pd - 50, self.prt, self.func).start()  #
 
             # self.mstr.after(self.tm, self.process_queue)
@@ -954,7 +954,7 @@ class WaitSplash(Toplevel):
         self.update()
 
 
-class ThreadedTask(threading.Thread):
+class ModbusPollThreadedTask(threading.Thread):
     def __init__(self, queue_obj, ip, dev, strt, lgth, dtype, bs, ws, to, pd, prt, func):
         self.ip = ip
         self.dev = dev
