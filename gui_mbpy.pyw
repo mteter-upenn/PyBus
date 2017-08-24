@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from math import log10
-from mbpy.mbpy import mb_poll
+from mbpy.mb_poll import mb_poll
 from time import (sleep, time)
 import threading
 import queue
@@ -44,7 +44,7 @@ four_byte_formats = {'Float 32 Bit': 'float', 'Unsigned Integer 32 Bit': 'uint32
                      'Unsigned Mod 1K 32 Bit': 'um1k32', 'Signed Mod 1K 32 Bit': 'sm1k32',
                      'Unsigned Mod 10K 32 Bit': 'um10k32', 'Signed Mod 10K 32 Bit': 'sm10k32'}
 six_byte_formats = {'Unsigned Integer 48 Bit': 'uint48', 'Unsigned Mod 1K 48 Bit': 'um1k48',
-                    'Signed Mod 1K 48 Bit': 'sm1k48', 'Unsigned Mod 10K 48 Bit':'um10k48',
+                    'Signed Mod 1K 48 Bit': 'sm1k48', 'Unsigned Mod 10K 48 Bit': 'um10k48',
                     'Signed Mod 10K 48 Bit': 'sm10k48'}  # 'sint48' is not supported
 eight_byte_formats = {'Double 64 Bit': 'dbl', 'Eaton Energy 64 Bit': 'engy', 'Unsigned Integer 64 Bit': 'uint64',
                       'Signed Integer 64 Bit': 'sint64', 'Unsigned Mod 1K 64 Bit': 'um1k64',
@@ -542,8 +542,9 @@ class DisplayApp:
             # self.queue = queue.Queue()
             self.chk_tm = time()
 
-            ModbusPollThreadedTask(self.queue, self.ip, self.dev, self.strt, self.lgth, self.dtype, self.bs, self.ws, self.pd,
-                         int((self.chk_tm - time()) * 1000) + self.pd - 50, self.prt, self.func).start()  #
+            ModbusPollThreadedTask(self.queue, self.ip, self.dev, self.strt, self.lgth, self.dtype, self.bs, self.ws,
+                                   self.pd, int((self.chk_tm - time()) * 1000) + self.pd - 50, self.prt,
+                                   self.func).start()
 
             # self.mstr.after(self.tm, self.process_queue)
         else:  # pause task
@@ -707,7 +708,7 @@ class DisplayApp:
         num_digits = max(int(log10(last_reg)) + 1, 4)
 
         if self.func in (3, 6):
-            strt += 4 * 10 ** num_digits # 40000
+            strt += 4 * 10 ** num_digits  # 40000
         elif self.func == 4:
             strt += 3 * 10 ** num_digits
         else:  # func 5
@@ -979,8 +980,6 @@ class ModbusPollThreadedTask(threading.Thread):
                        mb_to=self.timeout, pdelay=self.pd, port=self.prt, func=self.func)
         # print('finish', time(), '\n')
         self.queue.put((1, otpt))
-
-
 
 
 matplotlib.use('TkAgg')

@@ -3,6 +3,7 @@
 # Created by: python.exe -m py2exe -W setup.py gui_mbpy.pyw
 # Run to create executable: python setup_gui_exe.py py2exe   <-----------------------------------
 from distutils.core import setup
+import os
 import py2exe
 
 class Target(object):
@@ -154,7 +155,8 @@ py2exe_options = dict(
 
 
 # Some options can be overridden by command line options...
-mydatafiles = [('resources', ['c:/Users/mteter/ModbusComms/resources/Upenn16.ico'])]
+icopath = os.getcwd() + '/resources/Upenn16.ico'
+mydatafiles = [('resources', [icopath])]
 
 setup(name="name",
       # console based executables
