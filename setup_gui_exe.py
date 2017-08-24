@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Created by: python.exe -m py2exe -W setup.py gui_mbpy.pyw
-# Run to create executable: python setup_gui.py py2exe   <-----------------------------------
+# Run to create executable: python setup_gui_exe.py py2exe   <-----------------------------------
 from distutils.core import setup
 import py2exe
 

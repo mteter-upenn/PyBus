@@ -127,6 +127,9 @@ class ModbusData:
         i = self.strt
         regs = []
 
+        if self.bs:
+            pckt[::2], pckt[1::2] = pckt[1::2], pckt[::2]
+
         if self.func in (1, 2):
             for bitCoils in pckt:
                 for j in range(8):
@@ -139,9 +142,6 @@ class ModbusData:
                     i += 1
                     if i >= self.lgth + self.strt:
                         return
-
-        if self.bs:
-            pckt[::2], pckt[1::2] = pckt[1::2], pckt[::2]
 
         for bth, btl in zip(pckt[::2], pckt[1::2]):
             regs.append((bth << 8) | btl)

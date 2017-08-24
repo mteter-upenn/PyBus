@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# Created by: python.exe -m py2exe -W setup_slim.py gui_mbpy_slim.pyw
-# Run: python setup_slim.py py2exe   <-----------------------------------
+# Created by: python.exe -m py2exe -W setup_slim_exe.py gui_mbpy_slim.pyw
+# Run: python setup_slim_exe.py py2exe   <-----------------------------------
 
 import os
 from distutils.core import setup
