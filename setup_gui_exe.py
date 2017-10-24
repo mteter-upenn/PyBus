@@ -5,6 +5,10 @@
 from distutils.core import setup
 import os
 import py2exe
+# import sys
+
+# sys.setrecursionlimit(2500)
+
 
 class Target(object):
     '''Target is the baseclass for all executables that are created.
@@ -157,6 +161,7 @@ py2exe_options = dict(
 # Some options can be overridden by command line options...
 icopath = os.getcwd() + '/resources/Upenn16.ico'
 mydatafiles = [('resources', [icopath])]
+# mydatafiles = [('resources', ['C:/Users/mteter/PyBus/resource/Upenn16.ico'])]
 
 setup(name="name",
       # console based executables
