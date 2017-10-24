@@ -647,11 +647,11 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                 # packet[19] = (0 >> 8) & 0xff
                 # packet[20] = 0 & 0xff
 
-                print(list(packet))
+                # print(list(packet))
             else:
                 packet[10] = (wrt >> 8) & 0xFF
                 packet[11] = wrt & 0xFF
-                print(list(packet))
+                # print(list(packet))
 
             pcktwrt = list(packet[6:])
         else:
