@@ -58,24 +58,26 @@ def modbus_func_bw(x):
     return x
 
 
-def print_errs_prog_bar(verbosity, poll_iter, rws, flg_lp, validi, pbl, p, opt='', msg=0):  # prints error messages and progress bar
+def print_errs_prog_bar(verbosity, poll_iter, row_len, poll_forever, valid_polls, prog_bar_cols, total_polls,
+                        err_type='', modbus_err=0):  # prints error messages and progress bar
     if verbosity is not None:
-        if opt == 'to':
-            print('Poll', poll_iter, 'timed out.', '\n' * rws, end='')
-        elif opt == 'err':
-            print('Modbus', msg, 'error', '\n'*rws, end='')
-        elif opt == 'crc':
-            print('CRC does not match for poll', poll_iter, ', transmission failure.', '\n' * rws, end='')
+        if err_type == 'to':
+            print('Poll', poll_iter, 'timed out.', '\n' * row_len, end='')
+        elif err_type == 'err':
+            print('Modbus', modbus_err, 'error', '\n' * row_len, end='')
+        elif err_type == 'crc':
+            print('CRC does not match for poll', poll_iter, ', transmission failure.', '\n' * row_len, end='')
 
         if verbosity in (3, 4):
             if verbosity == 3:
                 print('\x1b[2K', end='')
 
-            if flg_lp:
-                print('(', validi, ' / ', poll_iter, ')', sep='', end='\r')
+            if poll_forever:
+                print('(', valid_polls, ' / ', poll_iter, ')', sep='', end='\r')
             else:
-                print('[', '=' * ((poll_iter * pbl) // p), ' ' * (pbl - ((poll_iter * pbl) // p)), '] (', (poll_iter * 100) // p, '%) (',
-                      validi, ' / ', poll_iter, ')', sep='', end='\r')
+                print('[', '=' * ((poll_iter * prog_bar_cols) // total_polls), ' ' *
+                      (prog_bar_cols - ((poll_iter * prog_bar_cols) // total_polls)), '] (',
+                      (poll_iter * 100) // total_polls, '%) (', valid_polls, ' / ', poll_iter, ')', sep='', end='\r')
 
             if verbosity == 4:
                 print()
