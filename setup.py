@@ -36,6 +36,7 @@ setup(
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
+        'Environment :: Console',
         # How mature is this project? Common values are
         #   3 - Alpha
         #   4 - Beta
@@ -43,8 +44,11 @@ setup(
         'Development Status :: 4 - Beta',
 
         # Indicate who your project is intended for
-        'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
+        'Intended Audience :: Information Technology',
+        'Intended Audience :: Other Audience',
+        'Intended Audience :: Telecommunications Industry',
+        'Topic :: Communications',
+        'Topic :: Internet',
 
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: MIT License',
@@ -55,6 +59,8 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         # 'Programming Language :: Python :: 3.6',
+
+        'Natural Language :: English',
     ],
 
     # What does your project relate to?
