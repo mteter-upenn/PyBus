@@ -58,7 +58,7 @@ Optional arguments:
 - `-ws, --byteswap`: Sets word order to Big Endian. Default is Little Endian.
 - `-0, --zbased`: Register given in 0 based array format.
 - `-pt PORT, --port PORT`: [502] Change port to open socket over.
-- `-f FUNCTION, --func FUNCTION`: [3] Modbus function. Only 3, 4, 5, and 6 are fully supported.
+- `-f FUNCTION, --func FUNCTION`: [3] Modbus function. Only 1, 2, 3, 4, 5, and 6 are fully supported.
 - `-fl FILE, --file FILE`: Generates a csv file with name FILE in current directory.
 -  `-v, --verbose`: Verbosity options:
 	-  `-v`: Display last result only (Linux only)
