@@ -16,68 +16,68 @@ from datetime import datetime
 
 
 # bandwidth checks for input variables:
-def dev_bw(x):
+def device_bw(x):
     x = int(x)
     if x < 1 or x > 255:
         raise argparse.ArgumentTypeError("Device ID must be between [1, 255].")
     return x
 
 
-def srt_bw(x):
+def register_bw(x):
     x = int(x)
     if x < 0 or x > 99990:
         raise argparse.ArgumentTypeError("Starting address must be in [0, 9999].")
     return x
 
 
-def len_bw(x):
+def num_regs_bw(x):
     x = int(x)
     if x < 1 or x > 9999:
         raise argparse.ArgumentTypeError("Length of addresses must be in [1, 9999].")
     return x
 
 
-def wrt_bw(x):
+def write_reg_bw(x):
     x = int(x)
     if x != (x & 0xFFFF):
         raise argparse.ArgumentTypeError('Value to write must be in [0, 65535]')
     return x
 
 
-def to_bw(x):
+def timeout_bw(x):
     x = int(x)
     if x < 1 or x > 10000:
         raise argparse.ArgumentTypeError("Timeout should be less than 10000 ms.")
     return x
 
 
-def fun_bw(x):
+def modbus_func_bw(x):
     x = int(x)
     if x not in (1, 2, 3, 4, 5, 6, 16):  # still need to add reading coils
         raise argparse.ArgumentTypeError("ILLEGAL MODBUS FUNCTION")
     return x
 
 
-def printfunc(verb, i, rws, flg_lp, validi, pbl, p, opt='', msg=0):  # prints error messages and progress bar
-    if verb is not None:
+def print_errs_prog_bar(verbosity, poll_iter, rws, flg_lp, validi, pbl, p, opt='', msg=0):  # prints error messages and progress bar
+    if verbosity is not None:
         if opt == 'to':
-            print('Poll', i, 'timed out.', '\n'*rws, end='')
+            print('Poll', poll_iter, 'timed out.', '\n' * rws, end='')
         elif opt == 'err':
             print('Modbus', msg, 'error', '\n'*rws, end='')
         elif opt == 'crc':
-            print('CRC does not match for poll', i, ', transmission failure.', '\n'*rws, end='')
+            print('CRC does not match for poll', poll_iter, ', transmission failure.', '\n' * rws, end='')
 
-        if verb in (3, 4):
-            if verb == 3:
+        if verbosity in (3, 4):
+            if verbosity == 3:
                 print('\x1b[2K', end='')
 
             if flg_lp:
-                print('(', validi, ' / ', i, ')', sep='', end='\r')
+                print('(', validi, ' / ', poll_iter, ')', sep='', end='\r')
             else:
-                print('[', '='*((i*pbl)//p), ' '*(pbl - ((i*pbl)//p)), '] (', (i*100)//p, '%) (',
-                      validi, ' / ', i, ')', sep='', end='\r')
+                print('[', '=' * ((poll_iter * pbl) // p), ' ' * (pbl - ((poll_iter * pbl) // p)), '] (', (poll_iter * 100) // p, '%) (',
+                      validi, ' / ', poll_iter, ')', sep='', end='\r')
 
-            if verb == 4:
+            if verbosity == 4:
                 print()
 
 
@@ -413,12 +413,12 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
     # check certain things if called through script rather than commandline
     if not flg_cl:
         # check if device in correct interval
-        dev = dev_bw(dev)
+        dev = device_bw(dev)
 
         # check if strt in correct interval
-        strt = srt_bw(strt)
+        strt = register_bw(strt)
 
-        mb_to = to_bw(mb_to)
+        mb_to = timeout_bw(mb_to)
 
         # check if type is part of allowable functions
         if t not in type_lst:
@@ -426,7 +426,7 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
 
         port = int(port)
 
-        func = fun_bw(func)
+        func = modbus_func_bw(func)
         # if func not in (3, 4):
         #     return mberrs[1]  # illegal modbus function
 
@@ -447,10 +447,10 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
 
     # change lng to check for the requested number of registers
     if writemb:  # write to register/coil
-        wrt = wrt_bw(lng)
+        wrt = write_reg_bw(lng)
         ret_lng = 8
     else:
-        lng = len_bw(lng)  # check if lng is in correct interval
+        lng = num_regs_bw(lng)  # check if lng is in correct interval
 
         if func in (1, 2):
             pass
@@ -713,12 +713,12 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                             mbdata.valarr = mberrs[113]
 
                             skip = True
-                            printfunc(verb, i, rws, flg_lp, validi, pbl, p, 'crc')
+                            print_errs_prog_bar(verb, i, rws, flg_lp, validi, pbl, p, 'crc')
                     else:
                         mbdata.valarr = mberrs[87]
 
                         skip = True
-                        printfunc(verb, i, rws, flg_lp, validi, pbl, p, 'to')
+                        print_errs_prog_bar(verb, i, rws, flg_lp, validi, pbl, p, 'to')
                 else:  # using ethernet!
                     inputs = select.select([conn], [], [], mb_to)[0]  # wait 5 s for conn to receive data in buffer
 
@@ -766,7 +766,7 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                     else:  # select timed out
                         mbdata.valarr = mberrs[87]
                         skip = True
-                        printfunc(verb, i, rws, flg_lp, validi, pbl, p, 'to')
+                        print_errs_prog_bar(verb, i, rws, flg_lp, validi, pbl, p, 'to')
 
                 if not skip:
                     if dev == packetrec[0] or packetrec[0] == 0:  # check modbus device
@@ -779,11 +779,11 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                                         mbdata.translate(packetrec[4:])
                                     else:
                                         mbdata.translate((0, wrt))
-                                    printfunc(verb, i, rws, flg_lp, validi, pbl, p)
+                                    print_errs_prog_bar(verb, i, rws, flg_lp, validi, pbl, p)
                                 else:
                                     print(packetrec)
                                     mbdata.valarr = mberrs[111]
-                                    printfunc(verb, i, rws, flg_lp, validi, pbl, p, 'err', 111)
+                                    print_errs_prog_bar(verb, i, rws, flg_lp, validi, pbl, p, 'err', 111)
                             else:
                                 if packetrec[2] == (len(packetrec) - 3):  # check length of modbus message
                                     # print("correct packet struct returned")
@@ -796,7 +796,7 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
 
                                     validi += 1
 
-                                    printfunc(verb, i, rws, flg_lp, validi, pbl, p)
+                                    print_errs_prog_bar(verb, i, rws, flg_lp, validi, pbl, p)
 
                                 else:
                                     mbdata.valarr = mberrs[109]  # UNEXPECTED MODBUS MESSAGE LENGTH
@@ -806,7 +806,7 @@ def mb_poll(ip, dev, strt, lng, h=False, p=1, t='float', bs=False, ws=False, zba
                             else:
                                 mbdata.valarr = ('Err', packetrec[2], 'UNKNOWN ERROR')
 
-                            printfunc(verb, i, rws, flg_lp, validi, pbl, p, 'err', packetrec[2])
+                            print_errs_prog_bar(verb, i, rws, flg_lp, validi, pbl, p, 'err', packetrec[2])
                         else:
                             mbdata.valarr = mberrs[110]  # UNEXPECTED MODBUS FUNCTION RETURNED
                             # print(packetrec)
@@ -845,8 +845,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Polls a modbus device through network.')
 
     parser.add_argument('ip', type=str, help='The IP address of the gateway or the comport (comX).')
-    parser.add_argument('dev', type=dev_bw, help='The id number of the desired device.')
-    parser.add_argument('srt', type=srt_bw, help='The address of the first register desired.')
+    parser.add_argument('dev', type=device_bw, help='The id number of the desired device.')
+    parser.add_argument('srt', type=register_bw, help='The address of the first register desired.')
     parser.add_argument('lng', type=int,
                         help='The number of registers to return (certain types will use 2 or 4 registers per output).')
     parser.add_argument('-p', '--poll', type=int, default=1, help='The number of polls. Default is 1.')
@@ -858,7 +858,7 @@ if __name__ == '__main__':
     parser.add_argument('-0', '--zbased', action='store_true',
                         help='Interprets starting address as 0-based value.  If not set then setting srt=2 looks at 1 '
                              '(second register).  If set then setting srt=2 looks at 2 (third register).')
-    parser.add_argument('-to', '--timeout', type=to_bw, default=1500,
+    parser.add_argument('-to', '--timeout', type=timeout_bw, default=1500,
                         help='Time in milliseconds to wait for reply message. Default is 1500.')
     parser.add_argument('-fl', '--file', type=str, help='Generates csv file in current folder.')
     parser.add_argument('-v', '--verbose', action='count',
@@ -867,7 +867,7 @@ if __name__ == '__main__':
     parser.add_argument('-pt', '--port', type=int, default=502, help='Set port to communicate over.  Default is 502.')
     parser.add_argument('-pd', '--pdelay', type=int, default=1000,
                         help='Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.')
-    parser.add_argument('-f', '--func', type=fun_bw, default=3,
+    parser.add_argument('-f', '--func', type=modbus_func_bw, default=3,
                         help='Modbus function.  Only 3, 4, 5, and 6 are supported.')
 
     args = parser.parse_args()
