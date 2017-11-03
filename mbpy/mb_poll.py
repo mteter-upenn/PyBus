@@ -494,7 +494,7 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
             # num_vals = (num_vals + 1) // 2
             num_regs = (num_vals + 1) // 2
         else:
-            pass  # for single register formats
+            num_regs = num_vals
 
         if mb_func in (1, 2):
             exp_num_bytes_ret = 5 + ((num_regs + 7) // 8)  # number of bytes converted from number of bits
