@@ -189,22 +189,6 @@ class InputApp:
 
         c_dtype.current(3)
 
-        # one_byte_formats = {'8 Bit Unsigned Int': 'uint8', '8 Bit Signed Int': 'sint8'}
-        # two_byte_formats = {'16 Bit Binary': 'bin', '16 Bit Hexadecimal': 'hex', '16 Bit ASCII': 'ascii',
-        #                     '16 Bit Unsigned Int': 'uint16', '16 Bit Signed Int': 'sint16',
-        #                     '16 Bit Signed Mod 1K': 'sm1k16',
-        #                     '16 Bit Signed Mod 10K': 'sm10k16'}
-        # four_byte_formats = {'32 Bit Float': 'float', '32 Bit Unsigned Int': 'uint32', '32 Bit Signed Int': 'sint32',
-        #                      '32 Bit Unsigned Mod 1K': 'um1k32', '32 Bit Signed Mod 1K': 'sm1k32',
-        #                      '32 Bit Unsigned Mod 10K': 'um10k32', '32 Bit Signed Mod 10K': 'sm10k32'}
-        # six_byte_formats = {'48 Bit Unsigned Int': 'uint48', '48 Bit Unsigned Mod 1K': 'um1k48',
-        #                     '48 Bit Signed Mod 1K': 'sm1k48', '48 Bit Unsigned Mod 10K': 'um10k48',
-        #                     '48 Bit Signed Mod 10K': 'sm10k48'}  # 'sint48' is not supported
-        # eight_byte_formats = {'64 Bit Double': 'dbl', '64 Bit Eaton Energy': 'engy', '64 Bit Unsigned Int': 'uint64',
-        #                       '64 Bit Signed Int': 'sint64', '64 Bit Unsigned Mod 1K': 'um1k64',
-        #                       '64 Bit Signed Mod 1K': 'sm1k64', '64 Bit Unsigned Mod 10K': 'um10k64',
-        #                       '64 Bit Signed Mod 10K': 'sm10k64'}
-
     # Label widget grid
         self.l_reg.grid(row=1, column=2, sticky=W)
     # Entry widget grid
@@ -253,6 +237,7 @@ class InputApp:
         self.b_start.configure(state=NORMAL)
         self.b_end.configure(state=DISABLED)
         chng_state(self.input_frame.winfo_children(), NORMAL)
+
         self.disp_app.killframe(self.v_gt.get())
 
     def chg_func(self):
@@ -379,7 +364,6 @@ class InputApp:
             else:
                 self.ch_gt.configure(fg='black')
                 self.gt_gd = True
-
         else:
             self.e_lreg.configure(fg='red')
             self.ch_gt.configure(fg='red')
@@ -807,8 +791,10 @@ class DisplayApp:
             for i in range(len(self.text_lbls)):
                 if self.typ in ('bin', 'hex', 'ascii'):
                     txt = self.text_lbls[i].cget('text')[:7] + data[i]
-                else:
+                elif self.typ in ('float', 'dbl'):
                     txt = self.text_lbls[i].cget('text')[:7] + '%.2f' % data[i]
+                else:
+                    txt = self.text_lbls[i].cget('text')[:7] + '%.0f' % data[i]
                 self.text_lbls[i].configure(text=txt)
                 self.otpt[i].append(data[i])
 

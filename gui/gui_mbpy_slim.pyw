@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from math import log10
-from mbpy.mbpy import mb_poll  # folder.file import function
+from mbpy.mb_poll import mb_poll  # folder.file import function
 from time import (sleep, time)
 import threading
 import queue
@@ -44,7 +44,7 @@ four_byte_formats = {'Float 32 Bit': 'float', 'Unsigned Integer 32 Bit': 'uint32
                      'Unsigned Mod 1K 32 Bit': 'um1k32', 'Signed Mod 1K 32 Bit': 'sm1k32',
                      'Unsigned Mod 10K 32 Bit': 'um10k32', 'Signed Mod 10K 32 Bit': 'sm10k32'}
 six_byte_formats = {'Unsigned Integer 48 Bit': 'uint48', 'Unsigned Mod 1K 48 Bit': 'um1k48',
-                    'Signed Mod 1K 48 Bit': 'sm1k48', 'Unsigned Mod 10K 48 Bit':'um10k48',
+                    'Signed Mod 1K 48 Bit': 'sm1k48', 'Unsigned Mod 10K 48 Bit': 'um10k48',
                     'Signed Mod 10K 48 Bit': 'sm10k48'}  # 'sint48' is not supported
 eight_byte_formats = {'Double 64 Bit': 'dbl', 'Eaton Energy 64 Bit': 'engy', 'Unsigned Integer 64 Bit': 'uint64',
                       'Signed Integer 64 Bit': 'sint64', 'Unsigned Mod 1K 64 Bit': 'um1k64',
@@ -174,9 +174,6 @@ class InputApp:
         self.e_lreg.insert(0, 1)
         self.e_prt.insert(0, 502)
     # Combobox defualt values
-    #     c_dtype['values'] = ('Binary', 'Hex', 'ASCII', 'Unsigned Int 16', 'Signed Int 16', 'Unsigned Int 32',
-    #                          'Signed Int 32', 'Float', 'Mod1k', 'Mod10k', 'Mod20k', 'Mod30k', 'Unsigned Int 64',
-    #                          'Energy', 'Double')
         c_dtype['values'] = ('Binary 16 Bit', 'Hexadecimal 16 Bit', 'ASCII 16 Bit', 'Float 32 Bit', 'Double 64 Bit',
                              'Eaton Energy 64 Bit',
                              'Unsigned Integer  8 Bit', 'Unsigned Integer 16 Bit', 'Unsigned Integer 32 Bit',
@@ -189,6 +186,7 @@ class InputApp:
                              'Unsigned Mod 10K 32 Bit', 'Unsigned Mod 10K 48 Bit', 'Unsigned Mod 10K 64 Bit',
                              'Signed Mod 10K 16 Bit', 'Signed Mod 10K 32 Bit', 'Signed Mod 10K 48 Bit',
                              'Signed Mod 10K 64 Bit')
+
         c_dtype.current(3)
 
     # Label widget grid
@@ -257,12 +255,6 @@ class InputApp:
             # self.gt_gd = True
 
         self.lgth_chk()
-        # if self.func == 3:
-        #     self.func = 4
-        #     self.b_func.configure(text='Function 4')
-        # else:
-        #     self.func = 3
-        #     self.b_func.configure(text='Function 3')
 
     def ip_chk(self, *args):
         iparr = self.v_ip.get().split(".")
@@ -374,7 +366,9 @@ class InputApp:
             #     self.gt_gd = True
         else:
             self.e_lreg.configure(fg='red')
+            # self.ch_gt.configure(fg='red')
             self.lreg_gd = False
+            # self.gt_gd = False
 
         self.all_chk()
 
@@ -545,7 +539,7 @@ class DisplayApp:
             msg = msg[1]
             # handle output ******************************************************************************************
             if msg == 'Paused':
-                print(msg)
+                # print(msg)
                 if self._job is not None:
                     self.mstr.after_cancel(self._job)
                     self._job = None
@@ -563,7 +557,7 @@ class DisplayApp:
                     # top.update()
 
                     while threading.active_count() > 1:
-                        print('thread running on pause')
+                        # print('thread running on pause')
                         sleep(.05)
                     else:
                         top.destroy()
@@ -584,7 +578,7 @@ class DisplayApp:
                     self.b_savetx.configure(state=NORMAL)
                 return
             else:
-                print(time(), threading.active_count())
+                # print(time(), threading.active_count())
                 self.totpolls += 1
                 if self.flg_gph:
                     pass
@@ -790,8 +784,10 @@ class DisplayApp:
             for i in range(len(self.text_lbls)):
                 if self.typ in ('bin', 'hex', 'ascii'):
                     txt = self.text_lbls[i].cget('text')[:7] + data[i]
-                else:
+                elif self.typ in ('float', 'dbl'):
                     txt = self.text_lbls[i].cget('text')[:7] + '%.2f' % data[i]
+                else:
+                    txt = self.text_lbls[i].cget('text')[:7] + '%.0f' % data[i]
                 self.text_lbls[i].configure(text=txt)
                 self.otpt[i].append(data[i])
 
@@ -849,7 +845,7 @@ class DisplayApp:
         #         messagebox.showerror('File Error', 'Plot could not be saved because file is already open!')
 
     def sv_data(self):
-        print(os.getcwd())
+        # print(os.getcwd())
         f = filedialog.asksaveasfilename(defaultextension='.csv', filetypes=[('CSV', '.csv')], parent=self.mstr)
         if f != '':
             try:
@@ -951,8 +947,9 @@ class ThreadedTask(threading.Thread):
 
     def run(self):
         # run function overrides thread run method
-        otpt = mb_poll(self.ip, self.dev, self.strt, self.lgth, t=self.dtype, bs=self.bs, ws=self.ws,
-                       mb_to=self.timeout, pdelay=self.pd, port=self.prt, func=self.func)
+        otpt = mb_poll(self.ip, self.dev, self.strt, self.lgth, data_type=self.dtype, b_byteswap=self.bs,
+                       b_wordswap=self.ws, mb_timeout=self.timeout, poll_delay=self.pd, port=self.prt,
+                       mb_func=self.func)
         self.queue.put((1, otpt))
 
 
