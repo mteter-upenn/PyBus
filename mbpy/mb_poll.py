@@ -6,6 +6,7 @@ import socket
 import argparse
 import csv
 import os
+import fcntl
 import serial
 import serial.tools.list_ports
 from math import log10
@@ -13,6 +14,16 @@ from math import log10
 from mbpy import mbcrc  # from folder import file
 from struct import pack, unpack
 from datetime import datetime
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    rpi_gpio_exists = False
+except RuntimeError:
+    rpi_gpio_exists = False
+else:
+    GPIO.setmode(GPIO.BOARD)
+    rpi_gpio_exists = True
+    print('does exist')
 
 
 # bandwidth checks for input variables:
@@ -376,6 +387,7 @@ mb_err_dict = {1: ('Err', 1, 'ILLEGAL FUNCTION'),
                112: ('Err', 112, 'MULTIPLE POLLS FOR WRITE COMMAND'),
                113: ('Err', 113, 'CRC INCORRECT, DATA TRANSMISSION FAILURE'),
                114: ('Err', 114, 'UNEXPECTED ERROR NUMBER'),
+               115: ('Err', 115, 'UNABLE TO OPEN SERIAL PORT'),
                224: ('Err', 224, 'GATEWAY: INVALID SLAVE ID'),
                225: ('Err', 225, 'GATEWAY: RETURNED FUNCTION DOES NOT MATCH'),
                226: ('Err', 226, 'GATEWAY: GATEWAY TIMEOUT'),
@@ -706,7 +718,21 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         tcp_conn.settimeout(mb_timeout)
 
         if serial_port is not None:  # COM port
-            serial_conn = serial.Serial(serial_port, timeout=mb_timeout, baudrate=9600)  # set up serial
+            open_serial_port = False
+            start_serial_time = time.time()
+
+            while not open_serial_port:
+                serial_conn = serial.Serial(serial_port, timeout=mb_timeout, baudrate=9600)  # set up serial
+
+                if time.time() - start_serial_time > mb_timeout:
+                    print('port is busy timeout')
+                    return mb_err_dict[115]
+                try:
+                    fcntl.flock(serial_conn.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except IOError:
+                    print('Port is busy')
+                else:
+                    open_serial_port = True
         else:
             try:
                 # print(port)
