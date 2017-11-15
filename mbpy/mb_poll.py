@@ -419,19 +419,22 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         ip_arr = ip.split(".")
 
         if len(ip_arr) != 4:
-            if len(ip_arr) == 1:
-                com_ports = list(serial.tools.list_ports.comports())
-                ip = ip.upper()
+            if os.name == 'nt':
+                if len(ip_arr) == 1:
+                    com_ports = list(serial.tools.list_ports.comports())
+                    ip = ip.upper()
 
-                for ports in com_ports:
-                    if ip == ports[0]:
-                        serial_port = int(ip[3:]) - 1
-                        # print('cmpt', cmpt)
-                        break
+                    for ports in com_ports:
+                        if ip == ports[0]:
+                            serial_port = int(ip[3:]) - 1
+                            # print('cmpt', cmpt)
+                            break
+                    else:
+                        return mb_err_dict[101]
                 else:
-                    return mb_err_dict[101]
+                    return mb_err_dict[101]  # raise ValueError('Invalid IP address!')
             else:
-                return mb_err_dict[101]  # raise ValueError('Invalid IP address!')
+                serial_port = ip
         else:
             for ch in ip_arr:
                 if int(ch) > 255 or int(ch) < 0:
