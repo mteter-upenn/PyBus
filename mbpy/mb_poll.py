@@ -6,7 +6,7 @@ import socket
 import argparse
 import csv
 import os
-import fcntl
+# import fcntl
 import serial
 import serial.tools.list_ports
 from math import log10
@@ -733,14 +733,14 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
             start_serial_time = time.time()
 
             while not open_serial_port:
-                serial_conn = serial.Serial(serial_port, timeout=mb_timeout, baudrate=9600)  # set up serial
-
                 if time.time() - start_serial_time > mb_timeout:
                     # print('port is busy timeout')
                     return mb_err_dict[115]
                 try:
-                    fcntl.flock(serial_conn.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except IOError:
+                    serial_conn = serial.Serial(serial_port, timeout=mb_timeout, baudrate=9600,
+                                                exclusive=True)  # set up serial
+                    # fcntl.flock(serial_conn.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except serial.serialutil.SerialException:
                     pass
                     # print('Port is busy')
                 else:
