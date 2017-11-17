@@ -63,17 +63,17 @@ def timeout_bw(x):
 
 
 def modbus_func_bw(x):
-    if x is not None:
-        x = int(x)
-        if x not in (1, 2, 3, 4, 5, 6, 16):  # still need to add reading coils
-            raise argparse.ArgumentTypeError("ILLEGAL MODBUS FUNCTION")
+    x = int(x)
+    if x not in (1, 2, 3, 4, 5, 6, 16):  # still need to add reading coils
+        raise argparse.ArgumentTypeError("ILLEGAL MODBUS FUNCTION")
     return x
 
 
 def pin_cntl_bw(x):
-    x = int(x)
-    if x not in (3, 5, 7, 11, 12, 13, 15, 16, 18, 19, 21, 22, 23, 24, 26, 29, 31, 32, 33, 35, 36, 37, 38, 40):
-        raise argparse.ArgumentTypeError('Illegal Raspberr Pi pin.')
+    if x is not None:
+        x = int(x)
+        if x not in (3, 5, 7, 11, 12, 13, 15, 16, 18, 19, 21, 22, 23, 24, 26, 29, 31, 32, 33, 35, 36, 37, 38, 40):
+            raise argparse.ArgumentTypeError('Illegal Raspberr Pi pin.')
     return x
 
 def print_errs_prog_bar(verbosity, poll_iter, row_len, b_poll_forever, valid_polls, prog_bar_cols, total_polls,
