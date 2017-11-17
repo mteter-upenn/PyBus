@@ -63,11 +63,18 @@ def timeout_bw(x):
 
 
 def modbus_func_bw(x):
-    x = int(x)
-    if x not in (1, 2, 3, 4, 5, 6, 16):  # still need to add reading coils
-        raise argparse.ArgumentTypeError("ILLEGAL MODBUS FUNCTION")
+    if x is not None:
+        x = int(x)
+        if x not in (1, 2, 3, 4, 5, 6, 16):  # still need to add reading coils
+            raise argparse.ArgumentTypeError("ILLEGAL MODBUS FUNCTION")
     return x
 
+
+def pin_cntl_bw(x):
+    x = int(x)
+    if x not in (3, 5, 7, 11, 12, 13, 15, 16, 18, 19, 21, 22, 23, 24, 26, 29, 31, 32, 33, 35, 36, 37, 38, 40):
+        raise argparse.ArgumentTypeError('Illegal Raspberr Pi pin.')
+    return x
 
 def print_errs_prog_bar(verbosity, poll_iter, row_len, b_poll_forever, valid_polls, prog_bar_cols, total_polls,
                         err_type='', modbus_err=0):  # prints error messages and progress bar
@@ -398,28 +405,30 @@ mb_err_dict = {1: ('Err', 1, 'ILLEGAL FUNCTION'),
 # run script
 def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type='float', b_byteswap=False,
             b_wordswap=False, zero_based=False, mb_timeout=1500, file_name_input=None, verbosity=None, port=502,
-            poll_delay=1000, mb_func=3):
+            poll_delay=1000, mb_func=3, pi_pin_cntl=None):
 
     if b_help:
         print('Polls a modbus device through network.',
-              '\nip:         The IP address of the gateway or the com port (comX)',
-              '\nmb_id:      The id number of the desired device.',
-              '\nstart_reg:  The address of the first register desired.',
-              '\nnum_vals:   The number of outputs to return (certain types will use 2 or 4 registers per output).',
-              '\nnum_polls:  The number of polls. Default is 1.',
-              '\ndata_type:  The desired type to be returned.',
-              '\nb_byteswap: Sets byteswap to true.  Default is Big Endian (False).',
-              '\nb_wordswap: Sets wordswap to true.  Default is Little Endian (False).',
-              '\nzero_based: Interprets starting address as 0-based value.  If not set then',
-              '\n                setting srt=2 looks at 1 (second register).  If set then setting',
-              '\n                srt=2 looks at 2 (third register) (Default is 1, else 0).',
-              '\nmb_timeout: Time in milliseconds to wait for reply message. Default is 1500.'
-              '\nfile_name:  Generates csv file in current folder.',
-              '\nverbosity:  Verbosity options. 1: Static display  2: Consecutive display  3: Static + progress bar '
-              '\n                4: Consecutive + progress bar',
-              '\nport:       Set port to communicate over.  Default is 502.'
-              '\npoll_delay: Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.'
-              '\nmb_func:    Modbus function. Default is 3.'
+              '\nip:          The IP address of the gateway or the com port (comX)',
+              '\nmb_id:       The id number of the desired device.',
+              '\nstart_reg:   The address of the first register desired.',
+              '\nnum_vals:    The number of outputs to return (certain types will use 2 or 4 registers per output).',
+              '\nnum_polls:   The number of polls. Default is 1.',
+              '\ndata_type:   The desired type to be returned.',
+              '\nb_byteswap:  Sets byteswap to true.  Default is Big Endian (False).',
+              '\nb_wordswap:  Sets wordswap to true.  Default is Little Endian (False).',
+              '\nzero_based:  Interprets starting address as 0-based value.  If not set then',
+              '\n                 setting srt=2 looks at 1 (second register).  If set then setting',
+              '\n                 srt=2 looks at 2 (third register) (Default is 1, else 0).',
+              '\nmb_timeout:  Time in milliseconds to wait for reply message. Default is 1500.'
+              '\nfile_name:   Generates csv file in current folder.',
+              '\nverbosity:   Verbosity options. 1: Static display  2: Consecutive display  3: Static + progress bar '
+              '\n                 4: Consecutive + progress bar',
+              '\nport:        Set port to communicate over.  Default is 502.'
+              '\npoll_delay:  Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.'
+              '\nmb_func:     Modbus function. Default is 3.'
+              '\npi_pin_cntl: Raspberry Pi GPIO pin (using BOARD pinouts) for Tx control of 485 chip.  If None, then '
+              'chip will rely on the Tx pin to control it.'
               )
         return
 
@@ -471,6 +480,8 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         mb_func = modbus_func_bw(mb_func)
         # if func not in (3, 4):
         #     return mberrs[1]  # illegal modbus function
+
+        pi_pin_cntl = pin_cntl_bw(pi_pin_cntl)
 
     mb_timeout = mb_timeout / 1000  # convert from ms to s
 
@@ -733,6 +744,10 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                     print('Port is busy')
                 else:
                     open_serial_port = True
+                    # if pin number is given and module exists, set pin low for tx
+                    if pi_pin_cntl is not None and rpi_gpio_exists:
+                        GPIO.setup(pi_pin_cntl, GPIO.OUT)
+                        GPIO.output(pi_pin_cntl, GPIO.LOW)
         else:
             try:
                 # print(port)
@@ -755,7 +770,13 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
             # print(conn)
             try:
                 if serial_port is not None:  # COM port
+                    if pi_pin_cntl is not None and rpi_gpio_exists:
+                        GPIO.output(pi_pin_cntl, GPIO.LOW)  # set low for tx
+
                     serial_conn.write(req_packet)  # send msg
+
+                    if pi_pin_cntl is not None and rpi_gpio_exists:
+                        GPIO.output(pi_pin_cntl, GPIO.HIGH)  # set high for rx
                 else:
                     # clear Rx buffer !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     tcp_conn.sendall(req_packet)  # send modbus request
@@ -769,7 +790,10 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                 poll_start_time = time.time()
 
                 if serial_port is not None:  # using com port!
-                    recv_packet_bytearr = serial_conn.read(exp_num_bytes_ret)  # need packetbt
+                    recv_packet_bytearr = serial_conn.read(exp_num_bytes_ret)  # blocks for mb_timeout seconds
+
+                    if pi_pin_cntl is not None and rpi_gpio_exists:
+                        GPIO.output(pi_pin_cntl, GPIO.LOW)  # set low for tx
 
                     if recv_packet_bytearr:  # recv_packet_bytearr != []:
 
@@ -942,6 +966,9 @@ if __name__ == '__main__':
                         help='Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.')
     parser.add_argument('-f', '--func', type=modbus_func_bw, default=3,
                         help='Modbus function.  Only 3, 4, 5, and 6 are supported.')
+    parser.add_argument('-pin', '--pin_cntl', type=pin_cntl_bw, default=None,
+                        help='Pin control for 485 chip on Raspberry Pi hat. Only used for serial.  Use Board pin '
+                             'numbers.  Default is None.')
 
     args = parser.parse_args()
 
@@ -949,6 +976,6 @@ if __name__ == '__main__':
     poll_results = mb_poll(args.ip, args.dev, args.srt, args.lng, num_polls=args.poll, data_type=args.typ,
                     b_byteswap=args.byteswap, b_wordswap=args.wordswap, zero_based=args.zbased, mb_timeout=args.timeout,
                     file_name_input=args.file, verbosity=args.verbose, port=args.port, poll_delay=args.pdelay,
-                    mb_func=args.func)
+                    mb_func=args.func, pi_pin_cntl=args.pin_cntl)
 
     print(poll_results)
