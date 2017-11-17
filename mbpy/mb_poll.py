@@ -774,6 +774,7 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                     if pi_pin_cntl is not None and rpi_gpio_exists:
                         GPIO.output(pi_pin_cntl, GPIO.LOW)  # set low for tx
 
+                    serial_conn.reset_input_buffer()
                     serial_conn.write(req_packet)  # send msg
 
                     if pi_pin_cntl is not None and rpi_gpio_exists:
