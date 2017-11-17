@@ -23,7 +23,7 @@ except RuntimeError:
 else:
     GPIO.setmode(GPIO.BOARD)
     rpi_gpio_exists = True
-    print('does exist')
+    # print('does exist')
 
 
 # bandwidth checks for input variables:
@@ -736,12 +736,13 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                 serial_conn = serial.Serial(serial_port, timeout=mb_timeout, baudrate=9600)  # set up serial
 
                 if time.time() - start_serial_time > mb_timeout:
-                    print('port is busy timeout')
+                    # print('port is busy timeout')
                     return mb_err_dict[115]
                 try:
                     fcntl.flock(serial_conn.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except IOError:
-                    print('Port is busy')
+                    pass
+                    # print('Port is busy')
                 else:
                     open_serial_port = True
                     # if pin number is given and module exists, set pin low for tx
