@@ -935,6 +935,9 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
     if csv_file_wrtr is not None:
         csv_file.close()
 
+    if pi_pin_cntl is not None and rpi_gpio_exists:
+        GPIO.cleanup()
+
     return mb_data.get_value_array()
 
 
