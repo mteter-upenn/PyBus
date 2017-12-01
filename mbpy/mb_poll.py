@@ -570,7 +570,7 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         num_vals = num_regs_bw(num_vals)  # check if lng is in correct interval
 
         if mb_func in (1, 2):
-            pass
+            num_regs = num_vals
         elif data_type in four_byte_formats:  # ('float', 'uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32', 'sm10k32'):
             # num_vals *= 2
             num_regs = num_vals * 2
