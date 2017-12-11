@@ -642,7 +642,9 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                 if verbosity == 0:
                     verbosity = None
         else:
-            if b_raw_bytes:
+            if b_write_mb:
+                num_prnt_rws = 2
+            elif b_raw_bytes:
                 num_prnt_rws = num_regs * 2 + 1
             else:
                 num_prnt_rws = num_vals + 1
