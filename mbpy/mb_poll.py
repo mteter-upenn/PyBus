@@ -6,6 +6,7 @@ import socket
 import argparse
 import csv
 import os
+# import fcntl
 import serial
 import serial.tools.list_ports
 from math import log10
@@ -13,6 +14,16 @@ from math import log10
 from mbpy import mbcrc  # from folder import file
 from struct import pack, unpack
 from datetime import datetime
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    rpi_gpio_exists = False
+except RuntimeError:
+    rpi_gpio_exists = False
+else:
+    GPIO.setmode(GPIO.BOARD)
+    rpi_gpio_exists = True
+    # print('does exist')
 
 
 ERASE_LINE = '\x1b[2K'
@@ -60,6 +71,13 @@ def modbus_func_bw(x):
         raise argparse.ArgumentTypeError("ILLEGAL MODBUS FUNCTION")
     return x
 
+
+def pin_cntl_bw(x):
+    if x is not None:
+        x = int(x)
+        if x not in (3, 5, 7, 11, 12, 13, 15, 16, 18, 19, 21, 22, 23, 24, 26, 29, 31, 32, 33, 35, 36, 37, 38, 40):
+            raise argparse.ArgumentTypeError('Illegal Raspberr Pi pin.')
+    return x
 
 def print_errs_prog_bar(verbosity, poll_iter, row_len, b_poll_forever, valid_polls, prog_bar_cols, total_polls,
                         err_type='', modbus_err=0):  # prints error messages and progress bar
@@ -465,6 +483,7 @@ mb_err_dict = {1: ('Err', 1, 'ILLEGAL FUNCTION'),
                112: ('Err', 112, 'MULTIPLE POLLS FOR WRITE COMMAND'),
                113: ('Err', 113, 'CRC INCORRECT, DATA TRANSMISSION FAILURE'),
                114: ('Err', 114, 'UNEXPECTED ERROR NUMBER'),
+               115: ('Err', 115, 'UNABLE TO OPEN SERIAL PORT'),
                224: ('Err', 224, 'GATEWAY: INVALID SLAVE ID'),
                225: ('Err', 225, 'GATEWAY: RETURNED FUNCTION DOES NOT MATCH'),
                226: ('Err', 226, 'GATEWAY: GATEWAY TIMEOUT'),
@@ -475,7 +494,7 @@ mb_err_dict = {1: ('Err', 1, 'ILLEGAL FUNCTION'),
 # run script
 def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type='float', b_byteswap=False,
             b_wordswap=False, zero_based=False, mb_timeout=1500, file_name_input=None, verbosity=None, port=502,
-            poll_delay=1000, mb_func=3, b_raw_bytes=False):
+            poll_delay=1000, mb_func=3, pi_pin_cntl=None, b_raw_bytes=False):
 
     if b_help:
         print('Polls a modbus device through network.',
@@ -497,6 +516,7 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
               '\nport:        Set port to communicate over.  Default is 502.'
               '\npoll_delay:  Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.'
               '\nmb_func:     Modbus function. Default is 3.'
+              '\npi_pin_cntl: Raspberry Pi GPIO pin (using BOARD pinouts) for Tx control of 485 chip.  If None, then '
               '\nb_raw_bytes: Returns bytes after accounting for word and byte swaps.'
               )
         return
@@ -509,19 +529,22 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         ip_arr = ip.split(".")
 
         if len(ip_arr) != 4:
-            if len(ip_arr) == 1:
-                com_ports = list(serial.tools.list_ports.comports())
-                ip = ip.upper()
+            if os.name == 'nt':
+                if len(ip_arr) == 1:
+                    com_ports = list(serial.tools.list_ports.comports())
+                    ip = ip.upper()
 
-                for ports in com_ports:
-                    if ip == ports[0]:
-                        serial_port = int(ip[3:]) - 1
-                        # print('cmpt', cmpt)
-                        break
+                    for ports in com_ports:
+                        if ip == ports[0]:
+                            serial_port = int(ip[3:]) - 1
+                            # print('cmpt', cmpt)
+                            break
+                    else:
+                        return mb_err_dict[101]
                 else:
-                    return mb_err_dict[101]
+                    return mb_err_dict[101]  # raise ValueError('Invalid IP address!')
             else:
-                return mb_err_dict[101]  # raise ValueError('Invalid IP address!')
+                serial_port = ip
         else:
             for ch in ip_arr:
                 if int(ch) > 255 or int(ch) < 0:
@@ -546,6 +569,8 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         mb_func = modbus_func_bw(mb_func)
         # if func not in (3, 4):
         #     return mberrs[1]  # illegal modbus function
+
+        pi_pin_cntl = pin_cntl_bw(pi_pin_cntl)
 
     mb_timeout /= 1000  # mb_timeout / 1000  # convert from ms to s
 
@@ -799,7 +824,26 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         tcp_conn.settimeout(mb_timeout)
 
         if serial_port is not None:  # COM port
-            serial_conn = serial.Serial(serial_port, timeout=mb_timeout, baudrate=9600)  # set up serial
+            open_serial_port = False
+            start_serial_time = time.time()
+
+            while not open_serial_port:
+                if time.time() - start_serial_time > mb_timeout:
+                    # print('port is busy timeout')
+                    return mb_err_dict[115]
+                try:
+                    serial_conn = serial.Serial(serial_port, timeout=mb_timeout, baudrate=9600,
+                                                exclusive=True)  # set up serial
+                    # fcntl.flock(serial_conn.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except serial.serialutil.SerialException:
+                    pass
+                    # print('Port is busy')
+                else:
+                    open_serial_port = True
+                    # if pin number is given and module exists, set pin low for tx
+                    if pi_pin_cntl is not None and rpi_gpio_exists:
+                        GPIO.setup(pi_pin_cntl, GPIO.OUT)
+                        GPIO.output(pi_pin_cntl, GPIO.LOW)
         else:
             try:
                 # print(port)
@@ -822,7 +866,14 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
             # print(conn)
             try:
                 if serial_port is not None:  # COM port
+                    if pi_pin_cntl is not None and rpi_gpio_exists:
+                        GPIO.output(pi_pin_cntl, GPIO.LOW)  # set low for tx
+
+                    serial_conn.reset_input_buffer()
                     serial_conn.write(req_packet)  # send msg
+
+                    if pi_pin_cntl is not None and rpi_gpio_exists:
+                        GPIO.output(pi_pin_cntl, GPIO.HIGH)  # set high for rx
                 else:
                     # clear Rx buffer !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     tcp_conn.sendall(req_packet)  # send modbus request
@@ -836,7 +887,10 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                 poll_start_time = time.time()
 
                 if serial_port is not None:  # using com port!
-                    recv_packet_bytearr = serial_conn.read(exp_num_bytes_ret)  # need packetbt
+                    recv_packet_bytearr = serial_conn.read(exp_num_bytes_ret)  # blocks for mb_timeout seconds
+
+                    if pi_pin_cntl is not None and rpi_gpio_exists:
+                        GPIO.output(pi_pin_cntl, GPIO.LOW)  # set low for tx
 
                     if recv_packet_bytearr:  # recv_packet_bytearr != []:
 
@@ -978,6 +1032,9 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
     if csv_file_wrtr is not None:
         csv_file.close()
 
+    if pi_pin_cntl is not None and rpi_gpio_exists:
+        GPIO.cleanup()
+
     return mb_data.get_value_array()
 
 
@@ -1009,6 +1066,9 @@ if __name__ == '__main__':
                         help='Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.')
     parser.add_argument('-f', '--func', type=modbus_func_bw, default=3,
                         help='Modbus function.  Only 3, 4, 5, and 6 are supported.')
+    parser.add_argument('-pin', '--pin_cntl', type=pin_cntl_bw, default=None,
+                        help='Pin control for 485 chip on Raspberry Pi hat. Only used for serial.  Use Board pin '
+                             'numbers.  Default is None.')
     parser.add_argument('-rb', '--raw_bytes', action='store_true',
                         help='Returns raw bytes after any necessary byte or word swaps.')
 
@@ -1018,6 +1078,6 @@ if __name__ == '__main__':
     poll_results = mb_poll(args.ip, args.dev, args.srt, args.lng, num_polls=args.poll, data_type=args.typ,
                     b_byteswap=args.byteswap, b_wordswap=args.wordswap, zero_based=args.zbased, mb_timeout=args.timeout,
                     file_name_input=args.file, verbosity=args.verbose, port=args.port, poll_delay=args.pdelay,
-                    mb_func=args.func, b_raw_bytes=args.raw_bytes)
+                    mb_func=args.func, pi_pin_cntl=args.pin_cntl, b_raw_bytes=args.raw_bytes)
 
     print(poll_results)
