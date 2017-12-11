@@ -15,6 +15,9 @@ from struct import pack, unpack
 from datetime import datetime
 
 
+ERASE_LINE = '\x1b[2K'
+
+
 # bandwidth checks for input variables:
 def device_bw(x):
     x = int(x)
@@ -70,7 +73,7 @@ def print_errs_prog_bar(verbosity, poll_iter, row_len, b_poll_forever, valid_pol
 
         if verbosity in (3, 4):
             if verbosity == 3:
-                print('\x1b[2K', end='')
+                print(ERASE_LINE, end='')
 
             if b_poll_forever:
                 print('(', valid_polls, ' / ', poll_iter, ')', sep='', end='\r')
@@ -84,7 +87,7 @@ def print_errs_prog_bar(verbosity, poll_iter, row_len, b_poll_forever, valid_pol
 
 
 class ModbusData:
-    def __init__(self, start_reg, num_vals, byte_swap, word_swap, b_print, data_type, mb_func):
+    def __init__(self, start_reg, num_vals, byte_swap, word_swap, b_print, data_type, mb_func, b_raw_bytes=False):
         self.mb_func = mb_func
 
         if data_type in four_byte_formats:  # ('uint32', 'sint32', 'float', 'mod10k'):
@@ -117,6 +120,7 @@ class ModbusData:
         self.data_type = data_type
         # self.pckt = []
         self._value_array = []
+        self.b_raw_bytes = b_raw_bytes
 
     def translate_regs_to_vals(self, recv_packet):
         # self.pckt = pckt
@@ -126,24 +130,38 @@ class ModbusData:
     #     self.reg(pckt)
     #
     # def reg(self, pckt):
-        iter_reg = self.start_reg
+        if self.b_raw_bytes:
+            iter_reg = 0
+        else:
+            iter_reg = self.start_reg
         raw_regs = []
 
         if self.byte_swap:
             recv_packet[::2], recv_packet[1::2] = recv_packet[1::2], recv_packet[::2]
 
         if self.mb_func in (1, 2):
-            for bit_coil_byte in recv_packet:
-                for bit_coil in range(8):
-                    self._value_array.append((bit_coil_byte >> bit_coil) & 0x1)
+            if self.b_raw_bytes:
+                for mb_byte in recv_packet:
+                    self._value_array.append(mb_byte & 0xff)
 
                     if self.b_print is not None:
                         if self.b_print in (1, 3):
-                            print('\x1b[2K', end='\r')
+                            print(ERASE_LINE, end='\r')
                         print(iter_reg, ":", self._value_array[-1])
                     iter_reg += 1
-                    if iter_reg >= self.num_vals + self.start_reg:
-                        return
+                return
+            else:
+                for bit_coil_byte in recv_packet:
+                    for bit_coil in range(8):
+                        self._value_array.append((bit_coil_byte >> bit_coil) & 0x1)
+
+                        if self.b_print is not None:
+                            if self.b_print in (1, 3):
+                                print(ERASE_LINE, end='\r')
+                            print(iter_reg, ":", self._value_array[-1])
+                        iter_reg += 1
+                        if iter_reg >= self.num_vals + self.start_reg:
+                            return
 
         # merge bytes into register values
         for byte_high, byte_low in zip(recv_packet[::2], recv_packet[1::2]):
@@ -154,172 +172,243 @@ class ModbusData:
 
             if self.b_print is not None:
                 if self.b_print in (1, 3):
-                    print('\x1b[2K', end='\r')
+                    print(ERASE_LINE, end='\r')
                 print('Wrote', self.start_reg, ":", self._value_array[-1])
             return
 
         if self.data_type in one_byte_formats:  # ('uint8', 'sint8'):
-            for r0 in raw_regs:
-                if self.data_type == 'uint8':
-                    self._value_array.append(r0 >> 8)
-                    self._value_array.append(r0 & 0xff)
-                elif self.data_type == 'sint8':
-                    self._value_array.append(unpack('b', pack('B', (r0 >> 8)))[0])
-                    self._value_array.append(unpack('b', pack('B', (r0 & 0xff)))[0])
+            if self.b_raw_bytes:
+                for mb_byte in recv_packet:
+                    self._value_array.append(mb_byte & 0xff)
 
-                if self.b_print is not None:
-                    if self.b_print in (1, 3):
-                        print('\x1b[2K', end='\r')
-                    print(iter_reg, "  :", self._value_array[-2])
-                    print(iter_reg + .5, ":", self._value_array[-1])
-                    iter_reg += 1
-        elif self.data_type in two_byte_formats:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16', 'sm1k16', 'sm10k16'):
-            for r0 in raw_regs:  # , self.pckt[2::4], self.pckt[3::4]):
-                if self.data_type == 'bin':
-                    # self.valarr.append(bin(r0))
-                    self._value_array.append(r0)
-                elif self.data_type == 'hex':
-                    self._value_array.append(r0)
-                elif self.data_type == 'ascii':
-                    b1 = bytes([r0 >> 8])
-                    b0 = bytes([r0 & 0xff])
-                    # b1 = bytes([56])
-                    # b0 = bytes([70])
-                    self._value_array.append(b1.decode('ascii', 'ignore') + b0.decode('ascii', 'ignore'))
-                    # self.valarr.append(chr(b1) + chr(b0))
-                elif self.data_type == 'uint16':
-                    self._value_array.append(r0)
-                elif self.data_type == 'sint16':
-                    self._value_array.append(unpack('h', pack('H', r0))[0])
-                elif self.data_type in ('sm1k16', 'sm10k16'):
-                    if r0 >> 15 == 1:
-                        sign_mplr = -1
-                    else:
-                        sign_mplr = 1
-
-                    self._value_array.append((r0 & 0x7fff) * sign_mplr)
-
-                if self.b_print is not None:
-                    if self.b_print in (1, 3):
-                        print('\x1b[2K', end='\r')
-                    if self.data_type == 'bin':
-                        # print(i, ":", format(self.valarr[-1], '#018b'))
-                        print(iter_reg, ": 0b", format((self._value_array[-1] >> 8) & 0xff, '08b'),
-                              format(self._value_array[-1] & 0xff, '08b'))
-                        self._value_array[-1] = bin(self._value_array[-1])
-                    elif self.data_type == 'hex':
-                        print(iter_reg, ":", format(self._value_array[-1], '#06x'))
-                        self._value_array[-1] = hex(self._value_array[-1])
-                    else:
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
                         print(iter_reg, ":", self._value_array[-1])
                     iter_reg += 1
+            else:
+                for r0 in raw_regs:
+                    if self.data_type == 'uint8':
+                        self._value_array.append(r0 >> 8)
+                        self._value_array.append(r0 & 0xff)
+                    elif self.data_type == 'sint8':
+                        self._value_array.append(unpack('b', pack('B', (r0 >> 8)))[0])
+                        self._value_array.append(unpack('b', pack('B', (r0 & 0xff)))[0])
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, "  :", self._value_array[-2])
+                        print(iter_reg + .5, ":", self._value_array[-1])
+                        iter_reg += 1
+        elif self.data_type in two_byte_formats:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16', 'sm1k16', 'sm10k16'):
+            if self.b_raw_bytes:
+                for mb_byte in recv_packet:
+                    self._value_array.append(mb_byte & 0xff)
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-1])
+                    iter_reg += 1
+            else:
+                for r0 in raw_regs:  # , self.pckt[2::4], self.pckt[3::4]):
+                    if self.data_type == 'bin':
+                        # self.valarr.append(bin(r0))
+                        self._value_array.append(r0)
+                    elif self.data_type == 'hex':
+                        self._value_array.append(r0)
+                    elif self.data_type == 'ascii':
+                        b1 = bytes([r0 >> 8])
+                        b0 = bytes([r0 & 0xff])
+                        # b1 = bytes([56])
+                        # b0 = bytes([70])
+                        self._value_array.append(b1.decode('ascii', 'ignore') + b0.decode('ascii', 'ignore'))
+                        # self.valarr.append(chr(b1) + chr(b0))
+                    elif self.data_type == 'uint16':
+                        self._value_array.append(r0)
+                    elif self.data_type == 'sint16':
+                        self._value_array.append(unpack('h', pack('H', r0))[0])
+                    elif self.data_type in ('sm1k16', 'sm10k16'):
+                        if r0 >> 15 == 1:
+                            sign_mplr = -1
+                        else:
+                            sign_mplr = 1
+
+                        self._value_array.append((r0 & 0x7fff) * sign_mplr)
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        if self.data_type == 'bin':
+                            # print(i, ":", format(self.valarr[-1], '#018b'))
+                            print(iter_reg, ": 0b", format((self._value_array[-1] >> 8) & 0xff, '08b'),
+                                  format(self._value_array[-1] & 0xff, '08b'))
+                            self._value_array[-1] = bin(self._value_array[-1])
+                        elif self.data_type == 'hex':
+                            print(iter_reg, ":", format(self._value_array[-1], '#06x'))
+                            self._value_array[-1] = hex(self._value_array[-1])
+                        else:
+                            print(iter_reg, ":", self._value_array[-1])
+                        iter_reg += 1
         elif self.data_type in four_byte_formats:
             # ('float', 'uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32','sm10k32'):
             if self.word_swap:
                 raw_regs[::2], raw_regs[1::2] = raw_regs[1::2], raw_regs[::2]
 
-            for r0, r1 in zip(raw_regs[::2], raw_regs[1::2]):  # , self.pckt[2::4], self.pckt[3::4]):
-                if self.data_type == 'uint32':
-                    self._value_array.append((r1 << 16) | r0)
-                elif self.data_type == 'sint32':
-                    self._value_array.append(unpack('i', pack('I', (r1 << 16) | r0))[0])
-                elif self.data_type == 'float':
-                    self._value_array.append(unpack('f', pack('I', (r1 << 16) | r0))[0])
-                elif self.data_type == 'um1k32':
-                    self._value_array.append(r1 * 1000 + r0)
-                elif self.data_type == 'sm1k32':
-                    if (r1 >> 15) == 1:
-                        r1 = (r1 & 0x7fff)
-                        self._value_array.append((-1) * (r1 * 1000 + r0))
-                    else:
-                        self._value_array.append(r1 * 1000 + r0)
-                elif self.data_type == 'um10k32':
-                    self._value_array.append(r1 * 10000 + r0)
-                elif self.data_type == 'sm10k32':
-                    if (r1 >> 15) == 1:
-                        r1 = (r1 & 0x7fff)
-                        self._value_array.append((-1) * (r1 * 10000 + r0))
-                    else:
-                        self._value_array.append(r1 * 10000 + r0)
+            if self.b_raw_bytes:
+                for mb_reg in raw_regs:
+                    self._value_array.append((mb_reg >> 8) & 0xff)
+                    self._value_array.append(mb_reg & 0xff)
 
-                if self.b_print is not None:
-                    if self.b_print in (1, 3):
-                        print('\x1b[2K', end='\r')
-                    print(iter_reg, ":", self._value_array[-1])
-                    iter_reg += 2
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-2])
+                    iter_reg += 1
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-1])
+                    iter_reg += 1
+            else:
+                for r0, r1 in zip(raw_regs[::2], raw_regs[1::2]):  # , self.pckt[2::4], self.pckt[3::4]):
+                    if self.data_type == 'uint32':
+                        self._value_array.append((r1 << 16) | r0)
+                    elif self.data_type == 'sint32':
+                        self._value_array.append(unpack('i', pack('I', (r1 << 16) | r0))[0])
+                    elif self.data_type == 'float':
+                        self._value_array.append(unpack('f', pack('I', (r1 << 16) | r0))[0])
+                    elif self.data_type == 'um1k32':
+                        self._value_array.append(r1 * 1000 + r0)
+                    elif self.data_type == 'sm1k32':
+                        if (r1 >> 15) == 1:
+                            r1 = (r1 & 0x7fff)
+                            self._value_array.append((-1) * (r1 * 1000 + r0))
+                        else:
+                            self._value_array.append(r1 * 1000 + r0)
+                    elif self.data_type == 'um10k32':
+                        self._value_array.append(r1 * 10000 + r0)
+                    elif self.data_type == 'sm10k32':
+                        if (r1 >> 15) == 1:
+                            r1 = (r1 & 0x7fff)
+                            self._value_array.append((-1) * (r1 * 10000 + r0))
+                        else:
+                            self._value_array.append(r1 * 10000 + r0)
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-1])
+                        iter_reg += 2
         elif self.data_type in six_byte_formats:  # ('uint48', 'sint48', 'um1k48', 'sm1k48', 'um10k48', 'sm10k48'):
             if self.word_swap:
                 raw_regs[::3], raw_regs[2::3] = raw_regs[2:3], raw_regs[::3]
 
-            for r0, r1, r2 in zip(raw_regs[::3], raw_regs[1::3], raw_regs[2::3]):
-                if self.data_type == 'uint48':
-                    self._value_array.append((r2 << 32) | (r1 << 16) | r0)
-                elif self.data_type == 'sint48':
-                    pass
-                    # self.valarr.append(unpack('uintle:48', pack('uintle:48', (r2 << 32) | (r1 << 16) | r0))[0])
-                    # self.valarr.append(unpack('q', pack('Q', (0 << 48) | (r2 << 32) | (r1 << 16) | r0))[0])
-                elif self.data_type == 'um1k48':
-                    self._value_array.append((r2 * (10 ** 6)) + (r1 * 1000) + r0)
-                elif self.data_type == 'sm1k48':
-                    if (r2 >> 15) == 1:
-                        r2 = (r2 & 0x7fff)
-                        self._value_array.append((-1) * ((r2 * (10 ** 6)) + (r1 * 1000) + r0))
-                    else:
-                        self._value_array.append((r2 * (10 ** 6)) + (r1 * 1000) + r0)
-                elif self.data_type == 'um10k48':
-                    self._value_array.append((r2 * (10 ** 8)) + (r1 * 10000) + r0)
-                elif self.data_type == 'sm10k48':
-                    if (r2 >> 15) == 1:
-                        r2 = (r2 & 0x7fff)
-                        self._value_array.append((-1) * ((r2 * (10 ** 8)) + (r1 * 10000) + r0))
-                    else:
-                        self._value_array.append((r2 * (10 ** 8)) + (r1 * 10000) + r0)
+            if self.b_raw_bytes:
+                for mb_reg in raw_regs:
+                    self._value_array.append((mb_reg >> 8) & 0xff)
+                    self._value_array.append(mb_reg & 0xff)
 
-                if self.b_print is not None:
-                    if self.b_print in (1, 3):
-                        print('\x1b[2K', end='\r')
-                    print(iter_reg, ":", self._value_array[-1])
-                    iter_reg += 2
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-2])
+                    iter_reg += 1
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-1])
+                    iter_reg += 1
+            else:
+                for r0, r1, r2 in zip(raw_regs[::3], raw_regs[1::3], raw_regs[2::3]):
+                    if self.data_type == 'uint48':
+                        self._value_array.append((r2 << 32) | (r1 << 16) | r0)
+                    elif self.data_type == 'sint48':
+                        pass
+                        # self.valarr.append(unpack('uintle:48', pack('uintle:48', (r2 << 32) | (r1 << 16) | r0))[0])
+                        # self.valarr.append(unpack('q', pack('Q', (0 << 48) | (r2 << 32) | (r1 << 16) | r0))[0])
+                    elif self.data_type == 'um1k48':
+                        self._value_array.append((r2 * (10 ** 6)) + (r1 * 1000) + r0)
+                    elif self.data_type == 'sm1k48':
+                        if (r2 >> 15) == 1:
+                            r2 = (r2 & 0x7fff)
+                            self._value_array.append((-1) * ((r2 * (10 ** 6)) + (r1 * 1000) + r0))
+                        else:
+                            self._value_array.append((r2 * (10 ** 6)) + (r1 * 1000) + r0)
+                    elif self.data_type == 'um10k48':
+                        self._value_array.append((r2 * (10 ** 8)) + (r1 * 10000) + r0)
+                    elif self.data_type == 'sm10k48':
+                        if (r2 >> 15) == 1:
+                            r2 = (r2 & 0x7fff)
+                            self._value_array.append((-1) * ((r2 * (10 ** 8)) + (r1 * 10000) + r0))
+                        else:
+                            self._value_array.append((r2 * (10 ** 8)) + (r1 * 10000) + r0)
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-1])
+                        iter_reg += 2
         else:  # ('uint64', 'sint64', 'um1k64', 'sm1k64', 'um10k64', 'sm10k64', 'engy', 'dbl')
             if self.word_swap:
                 raw_regs[::4], raw_regs[1::4], raw_regs[2::4], raw_regs[3::4] = \
                     raw_regs[3::4], raw_regs[2::4], raw_regs[1::4], raw_regs[::4]
 
-            for r0, r1, r2, r3 in zip(raw_regs[::4], raw_regs[1::4], raw_regs[2::4], raw_regs[3::4]):
-                if self.data_type == 'uint64':
-                    self._value_array.append((r3 << 48) | (r2 << 32) | (r1 << 16) | r0)
-                elif self.data_type == 'sint64':
-                    self._value_array.append(unpack('q', pack('Q', (r3 << 48) | (r2 << 32) | (r1 << 16) | r0))[0])
-                elif self.data_type == 'um1k64':
-                    self._value_array.append(r3 * (10 ** 9) + r2 * (10 ** 6) + r1 * 1000 + r0)
-                elif self.data_type == 'sm1k64':
-                    if (r3 >> 15) == 1:
-                        r3 = (r3 & 0x7fff)
-                        self._value_array.append((-1) * (r3 * (10 ** 9) + r2 * (10 ** 6) + r1 * 1000 + r0))
-                    else:
+            if self.b_raw_bytes:
+                for mb_reg in raw_regs:
+                    self._value_array.append((mb_reg >> 8) & 0xff)
+                    self._value_array.append(mb_reg & 0xff)
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-2])
+                    iter_reg += 1
+
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-1])
+                    iter_reg += 1
+            else:
+                for r0, r1, r2, r3 in zip(raw_regs[::4], raw_regs[1::4], raw_regs[2::4], raw_regs[3::4]):
+                    if self.data_type == 'uint64':
+                        self._value_array.append((r3 << 48) | (r2 << 32) | (r1 << 16) | r0)
+                    elif self.data_type == 'sint64':
+                        self._value_array.append(unpack('q', pack('Q', (r3 << 48) | (r2 << 32) | (r1 << 16) | r0))[0])
+                    elif self.data_type == 'um1k64':
                         self._value_array.append(r3 * (10 ** 9) + r2 * (10 ** 6) + r1 * 1000 + r0)
-                elif self.data_type == 'um10k64':
-                    self._value_array.append(r3 * (10 ** 12) + r2 * (10 ** 8) + r1 * 10000 + r0)
-                elif self.data_type == 'sm10k64':
-                    if (r3 >> 15) == 1:
-                        r3 = (r3 & 0x7fff)
-                        self._value_array.append((-1) * (r3 * (10 ** 12) + r2 * (10 ** 8) + r1 * 10000 + r0))
-                    else:
+                    elif self.data_type == 'sm1k64':
+                        if (r3 >> 15) == 1:
+                            r3 = (r3 & 0x7fff)
+                            self._value_array.append((-1) * (r3 * (10 ** 9) + r2 * (10 ** 6) + r1 * 1000 + r0))
+                        else:
+                            self._value_array.append(r3 * (10 ** 9) + r2 * (10 ** 6) + r1 * 1000 + r0)
+                    elif self.data_type == 'um10k64':
                         self._value_array.append(r3 * (10 ** 12) + r2 * (10 ** 8) + r1 * 10000 + r0)
-                elif self.data_type == 'engy':
-                    # split r3 into engineering and mantissa bytes THIS WILL NOT HANDLE MANTISSA - DOCUMENTATION DOES
-                    # NOT EXIST ON HOW TO HANDLE IT WITH THEIR UNITS
+                    elif self.data_type == 'sm10k64':
+                        if (r3 >> 15) == 1:
+                            r3 = (r3 & 0x7fff)
+                            self._value_array.append((-1) * (r3 * (10 ** 12) + r2 * (10 ** 8) + r1 * 10000 + r0))
+                        else:
+                            self._value_array.append(r3 * (10 ** 12) + r2 * (10 ** 8) + r1 * 10000 + r0)
+                    elif self.data_type == 'engy':
+                        # split r3 into engineering and mantissa bytes THIS WILL NOT HANDLE MANTISSA-DOCUMENTATION DOES
+                        # NOT EXIST ON HOW TO HANDLE IT WITH THEIR UNITS
 
-                    engr = unpack('b', pack('B', (r3 >> 8)))[0]
-                    self._value_array.append(((r2 << 32) | (r1 << 16) | r0) * (10 ** engr))
-                elif self.data_type == 'dbl':
-                    self._value_array.append(unpack('d', pack('Q', (r3 << 48) | (r2 << 32) | (r1 << 16) | r0))[0])
+                        engr = unpack('b', pack('B', (r3 >> 8)))[0]
+                        self._value_array.append(((r2 << 32) | (r1 << 16) | r0) * (10 ** engr))
+                    elif self.data_type == 'dbl':
+                        self._value_array.append(unpack('d', pack('Q', (r3 << 48) | (r2 << 32) | (r1 << 16) | r0))[0])
 
-                if self.b_print is not None:
-                    if self.b_print in (1, 3):
-                        print('\x1b[2K', end='\r')
-                    print(iter_reg, ":", self._value_array[-1])
-                    iter_reg += 4
+                    if self.b_print is not None:
+                        if self.b_print in (1, 3):
+                            print(ERASE_LINE, end='\r')
+                        print(iter_reg, ":", self._value_array[-1])
+                        iter_reg += 4
 
     def insert_datetime(self):
         self._value_array.insert(0, str(datetime.now()))
@@ -386,28 +475,29 @@ mb_err_dict = {1: ('Err', 1, 'ILLEGAL FUNCTION'),
 # run script
 def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type='float', b_byteswap=False,
             b_wordswap=False, zero_based=False, mb_timeout=1500, file_name_input=None, verbosity=None, port=502,
-            poll_delay=1000, mb_func=3):
+            poll_delay=1000, mb_func=3, b_raw_bytes=False):
 
     if b_help:
         print('Polls a modbus device through network.',
-              '\nip:         The IP address of the gateway or the com port (comX)',
-              '\nmb_id:      The id number of the desired device.',
-              '\nstart_reg:  The address of the first register desired.',
-              '\nnum_vals:   The number of outputs to return (certain types will use 2 or 4 registers per output).',
-              '\nnum_polls:  The number of polls. Default is 1.',
-              '\ndata_type:  The desired type to be returned.',
-              '\nb_byteswap: Sets byteswap to true.  Default is Big Endian (False).',
-              '\nb_wordswap: Sets wordswap to true.  Default is Little Endian (False).',
-              '\nzero_based: Interprets starting address as 0-based value.  If not set then',
-              '\n                setting srt=2 looks at 1 (second register).  If set then setting',
-              '\n                srt=2 looks at 2 (third register) (Default is 1, else 0).',
-              '\nmb_timeout: Time in milliseconds to wait for reply message. Default is 1500.'
-              '\nfile_name:  Generates csv file in current folder.',
-              '\nverbosity:  Verbosity options. 1: Static display  2: Consecutive display  3: Static + progress bar '
-              '\n                4: Consecutive + progress bar',
-              '\nport:       Set port to communicate over.  Default is 502.'
-              '\npoll_delay: Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.'
-              '\nmb_func:    Modbus function. Default is 3.'
+              '\nip:          The IP address of the gateway or the com port (comX)',
+              '\nmb_id:       The id number of the desired device.',
+              '\nstart_reg:   The address of the first register desired.',
+              '\nnum_vals:    The number of outputs to return (certain types will use 2 or 4 registers per output).',
+              '\nnum_polls:   The number of polls. Default is 1.',
+              '\ndata_type:   The desired type to be returned.',
+              '\nb_byteswap:  Sets byteswap to true.  Default is Big Endian (False).',
+              '\nb_wordswap:  Sets wordswap to true.  Default is Little Endian (False).',
+              '\nzero_based:  Interprets starting address as 0-based value.  If not set then',
+              '\n                 setting srt=2 looks at 1 (second register).  If set then setting',
+              '\n                 srt=2 looks at 2 (third register) (Default is 1, else 0).',
+              '\nmb_timeout:  Time in milliseconds to wait for reply message. Default is 1500.'
+              '\nfile_name:   Generates csv file in current folder.',
+              '\nverbosity:   Verbosity options. 1: Static display  2: Consecutive display  3: Static + progress bar '
+              '\n                 4: Consecutive + progress bar',
+              '\nport:        Set port to communicate over.  Default is 502.'
+              '\npoll_delay:  Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.'
+              '\nmb_func:     Modbus function. Default is 3.'
+              '\nb_raw_bytes: Returns bytes after accounting for word and byte swaps.'
               )
         return
 
@@ -457,7 +547,7 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         # if func not in (3, 4):
         #     return mberrs[1]  # illegal modbus function
 
-    mb_timeout = mb_timeout / 1000  # convert from ms to s
+    mb_timeout /= 1000  # mb_timeout / 1000  # convert from ms to s
 
     if mb_func in (5, 6, 16):
         b_write_mb = True
@@ -480,7 +570,7 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         num_vals = num_regs_bw(num_vals)  # check if lng is in correct interval
 
         if mb_func in (1, 2):
-            pass
+            num_regs = num_vals
         elif data_type in four_byte_formats:  # ('float', 'uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32', 'sm10k32'):
             # num_vals *= 2
             num_regs = num_vals * 2
@@ -552,7 +642,12 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                 if verbosity == 0:
                     verbosity = None
         else:
-            num_prnt_rws = num_vals + 1
+            if b_write_mb:
+                num_prnt_rws = 2
+            elif b_raw_bytes:
+                num_prnt_rws = num_regs * 2 + 1
+            else:
+                num_prnt_rws = num_vals + 1
             # if mb_func in (1, 2):
             #     rws = num_vals + 1
             # elif data_type in one_byte_formats:  # ('uint8', 'sint8'):
@@ -580,7 +675,8 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         prog_bar_len = 0
 
     # vallst = 0
-    mb_data = ModbusData(start_reg, num_vals, b_byteswap, b_wordswap, verbosity, data_type, mb_func)
+    mb_data = ModbusData(start_reg, num_vals, b_byteswap, b_wordswap, verbosity, data_type, mb_func,
+                         b_raw_bytes=b_raw_bytes)
 
     if file_name_input is not None:
         try:
@@ -732,7 +828,7 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                     tcp_conn.sendall(req_packet)  # send modbus request
 
                 if verbosity in (1, 3):
-                    print('\x1b[', num_prnt_rws + 1, 'F\x1b[2K', sep='', end='\r')
+                    print('\x1b[', num_prnt_rws + 1, 'F' + ERASE_LINE, sep='', end='\r')
 
                 if verbosity is not None:
                     print('\nPoll', cur_poll, 'at:', str(datetime.now()))
@@ -913,6 +1009,8 @@ if __name__ == '__main__':
                         help='Delay in ms to let function sleep to retrieve reasonable data.  Default is 1000.')
     parser.add_argument('-f', '--func', type=modbus_func_bw, default=3,
                         help='Modbus function.  Only 3, 4, 5, and 6 are supported.')
+    parser.add_argument('-rb', '--raw_bytes', action='store_true',
+                        help='Returns raw bytes after any necessary byte or word swaps.')
 
     args = parser.parse_args()
 
@@ -920,6 +1018,6 @@ if __name__ == '__main__':
     poll_results = mb_poll(args.ip, args.dev, args.srt, args.lng, num_polls=args.poll, data_type=args.typ,
                     b_byteswap=args.byteswap, b_wordswap=args.wordswap, zero_based=args.zbased, mb_timeout=args.timeout,
                     file_name_input=args.file, verbosity=args.verbose, port=args.port, poll_delay=args.pdelay,
-                    mb_func=args.func)
+                    mb_func=args.func, b_raw_bytes=args.raw_bytes)
 
     print(poll_results)
