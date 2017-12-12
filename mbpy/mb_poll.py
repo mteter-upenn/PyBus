@@ -888,9 +888,9 @@ def tick_poll_and_wait(cur_poll, num_polls, b_poll_forever, poll_start_time, pol
 
 
 # run script
-def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type='float', b_byteswap=False,
-            b_wordswap=False, zero_based=False, mb_timeout=1500, file_name_input=None, verbosity=None, port=502,
-            poll_delay=1000, mb_func=3, pi_pin_cntl=None, b_raw_bytes=False):
+def modbus_poller(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type='float', b_byteswap=False,
+                  b_wordswap=False, zero_based=False, mb_timeout=1500, file_name_input=None, verbosity=None, port=502,
+                  poll_delay=1000, mb_func=3, pi_pin_cntl=None, b_raw_bytes=False):
 
     if b_help:
         print('Polls a modbus device through network.',
@@ -1209,10 +1209,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     B_CMD_LINE = True
-    poll_results = mb_poll(args.ip, args.dev, args.srt, args.lng, num_polls=args.poll, data_type=args.typ,
-                           b_byteswap=args.byteswap, b_wordswap=args.wordswap, zero_based=args.zbased,
-                           mb_timeout=args.timeout, file_name_input=args.file, verbosity=args.verbose, port=args.port,
-                           poll_delay=args.pdelay, mb_func=args.func, pi_pin_cntl=args.pin_cntl,
-                           b_raw_bytes=args.raw_bytes)
+    poll_results = modbus_poller(args.ip, args.dev, args.srt, args.lng, num_polls=args.poll, data_type=args.typ,
+                                 b_byteswap=args.byteswap, b_wordswap=args.wordswap, zero_based=args.zbased,
+                                 mb_timeout=args.timeout, file_name_input=args.file, verbosity=args.verbose, port=args.port,
+                                 poll_delay=args.pdelay, mb_func=args.func, pi_pin_cntl=args.pin_cntl,
+                                 b_raw_bytes=args.raw_bytes)
 
     print(poll_results)

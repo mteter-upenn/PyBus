@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from math import log10
-from mbpy.mb_poll import mb_poll  # folder.file import function
+from mbpy.mb_poll import modbus_poller  # folder.file import function
 from time import (sleep, time)
 import threading
 import queue
@@ -947,9 +947,9 @@ class ThreadedTask(threading.Thread):
 
     def run(self):
         # run function overrides thread run method
-        otpt = mb_poll(self.ip, self.dev, self.strt, self.lgth, data_type=self.dtype, b_byteswap=self.bs,
-                       b_wordswap=self.ws, mb_timeout=self.timeout, poll_delay=self.pd, port=self.prt,
-                       mb_func=self.func)
+        otpt = modbus_poller(self.ip, self.dev, self.strt, self.lgth, data_type=self.dtype, b_byteswap=self.bs,
+                             b_wordswap=self.ws, mb_timeout=self.timeout, poll_delay=self.pd, port=self.prt,
+                             mb_func=self.func)
         self.queue.put((1, otpt))
 
 
