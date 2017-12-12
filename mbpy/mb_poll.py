@@ -642,14 +642,18 @@ class ModbusData:
     def insert_datetime(self):
         self._value_array.insert(0, str(datetime.now()))
 
-    def set_error(self, mb_err, opt_str=None):
-        try:
-            if opt_str is None:
-                self._value_array = MB_ERR_DICT[mb_err]
-            else:
-                self._value_array = MB_ERR_DICT[mb_err] + tuple([opt_str])
-        except KeyError:
-            self._value_array = MB_ERR_DICT[114]
+    def set_error(self, mb_err):  # , opt_str=None):
+        if mb_err not in MB_ERR_DICT:
+            self._value_array = MB_ERR_DICT[114] + tuple([mb_err])
+        else:
+            self._value_array = MB_ERR_DICT[mb_err]
+        # try:
+        #     if opt_str is None:
+        #         self._value_array = MB_ERR_DICT[mb_err]
+        #     else:
+        #         self._value_array = MB_ERR_DICT[mb_err] + tuple([opt_str])
+        # except KeyError:
+        #     self._value_array = MB_ERR_DICT[114]
 
     def get_value_array(self):
         return self._value_array
@@ -864,6 +868,65 @@ def verify_no_comm_errs(serial_port, recv_packet_bytearr, verbosity, num_prnt_rw
     return error_code, recv_packet
 
 
+def verify_no_modbus_errs(recv_packet, mb_id, mb_func, val_to_write, b_write_mb, packet_write_list):
+    error_code = None
+    register_list = []
+
+    if mb_id == recv_packet[0] or recv_packet[0] == 0:  # check modbus device
+        if recv_packet[1] == mb_func:  # check modbus function
+            if b_write_mb:  # if write command, will have different checks
+                if packet_write_list == recv_packet:
+                    # print('Wrote', wrt, 'to register', strt)
+                    # mbdata.valarr = [wrt]
+                    if mb_func == 6:
+                        # mb_data.translate_regs_to_vals(recv_packet[4:])
+                        register_list = recv_packet[4:]
+                    else:
+                        # mb_data.translate_regs_to_vals((0, val_to_write))
+                        register_list = [0, val_to_write]
+                    # print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
+                    #                     prog_bar_len, num_polls)
+                else:
+                    # print(recv_packet)
+                    # mb_data.set_error(111)
+                    error_code = MB_ERR_DICT[111]
+                    # print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
+                    #                     prog_bar_len, num_polls, 111)
+            else:
+                if recv_packet[2] == (len(recv_packet) - 3):  # check length of modbus message
+                    # print("correct packet struct returned")
+                    # print(packetbt.decode('ascii'))
+                    # mb_data.translate_regs_to_vals(recv_packet[3:])
+                    register_list = recv_packet[3:]
+
+                    # if csv_file_wrtr is not None:
+                    #     mb_data.insert_datetime()
+                    #     csv_file_wrtr.writerow(mb_data.get_value_array())
+                    #
+                    # valid_polls += 1
+
+                    # print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
+                    #                     prog_bar_len, num_polls)
+                else:
+                    # mb_data.set_error(109)  # UNEXPECTED MODBUS MESSAGE LENGTH
+                    error_code = MB_ERR_DICT[109]
+        elif recv_packet[1] == (mb_func + 128) or recv_packet[1] == 128:  # check for error return
+            error_code = MB_ERR_DICT[recv_packet[2]]
+
+            # print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
+            #                     prog_bar_len, num_polls, recv_packet[2])
+        else:
+            # mb_data.set_error(110)  # UNEXPECTED MODBUS FUNCTION RETURNED
+            error_code = MB_ERR_DICT[110]
+            # print(packetrec)
+    else:
+        # mb_data.set_error(111)  # UNEXPECTED MODBUS SLAVE DEVICE MESSAGE
+        error_code = MB_ERR_DICT[111]
+        # print(packetrec)
+
+    return error_code, register_list
+
+
 def tick_poll_and_wait(cur_poll, num_polls, b_poll_forever, poll_start_time, poll_delay):
     new_cur_poll = cur_poll + 1
     new_num_polls = num_polls
@@ -1064,7 +1127,6 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
         valid_polls = 0
 
         cur_poll = 1
-        # b_conn_err = False
         while cur_poll < num_polls + 1:
             try:
                 if serial_port is not None:  # COM port
@@ -1123,55 +1185,23 @@ def mb_poll(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type
                         print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
                                             prog_bar_len, num_polls, error_code[1])
                 else:
-                    if mb_id == recv_packet[0] or recv_packet[0] == 0:  # check modbus device
-                        if recv_packet[1] == mb_func:  # check modbus function
-                            if b_write_mb:  # if write command, will have different checks
-                                if packet_write_list == recv_packet:
-                                    # print('Wrote', wrt, 'to register', strt)
-                                    # mbdata.valarr = [wrt]
-                                    if mb_func == 6:
-                                        mb_data.translate_regs_to_vals(recv_packet[4:])
-                                    else:
-                                        mb_data.translate_regs_to_vals((0, val_to_write))
-                                    print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
-                                                        prog_bar_len, num_polls)
-                                else:
-                                    print(recv_packet)
-                                    mb_data.set_error(111)
-                                    print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
-                                                        prog_bar_len, num_polls, 111)
-                            else:
-                                if recv_packet[2] == (len(recv_packet) - 3):  # check length of modbus message
-                                    # print("correct packet struct returned")
-                                    # print(packetbt.decode('ascii'))
-                                    mb_data.translate_regs_to_vals(recv_packet[3:])
+                    error_code, register_list = verify_no_modbus_errs(recv_packet, mb_id, mb_func, val_to_write,
+                                                                      b_write_mb, packet_write_list)
 
-                                    if csv_file_wrtr is not None:
-                                        mb_data.insert_datetime()
-                                        csv_file_wrtr.writerow(mb_data.get_value_array())
-
-                                    valid_polls += 1
-
-                                    print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
-                                                        prog_bar_len, num_polls)
-                                else:
-                                    mb_data.set_error(109)  # UNEXPECTED MODBUS MESSAGE LENGTH
-                        elif recv_packet[1] == (mb_func + 128) or recv_packet[1] == 128:  # check for error return
-                            if recv_packet[2] in MB_ERR_DICT:
-                                mb_data.set_error(recv_packet[2])  # MODBUS ERROR RETURNED
-                            else:
-                                mb_data.set_error(114, recv_packet[2])
-
-                            print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
-                                                prog_bar_len, num_polls, recv_packet[2])
-                        else:
-                            mb_data.set_error(110)  # UNEXPECTED MODBUS FUNCTION RETURNED
-                            # print(packetrec)
+                    if error_code is not None:
+                        mb_data.set_error(error_code[1])
+                        print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
+                                            prog_bar_len, num_polls, error_code[1])
                     else:
-                        mb_data.set_error(111)  # UNEXPECTED MODBUS SLAVE DEVICE MESSAGE
-                        # print(packetrec)
-                # else:
-                #     b_conn_err = False
+                        mb_data.translate_regs_to_vals(register_list)
+
+                        if csv_file_wrtr is not None:
+                            mb_data.insert_datetime()
+                            csv_file_wrtr.writerow(mb_data.get_value_array())
+
+                        valid_polls += 1
+                        print_errs_prog_bar(verbosity, cur_poll, num_prnt_rws, b_poll_forever, valid_polls,
+                                            prog_bar_len, num_polls)
 
                 cur_poll, num_polls = tick_poll_and_wait(cur_poll, num_polls, b_poll_forever, poll_start_time,
                                                          poll_delay)
