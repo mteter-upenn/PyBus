@@ -1,17 +1,19 @@
 #!/usr/bin/python3
 
 from math import log10
-from mbpy.mb_poll import modbus_poller
+# from mbpy.mb_poll import modbus_poller
+import mbpy.mb_poll as mb_poll
 from time import (sleep, time)
 import threading
 import queue
 import csv
 import os
+import sys
 import serial
 import serial.tools.list_ports
 from datetime import datetime
 from tkinter import (Frame, Button, Entry, Label, Checkbutton, GROOVE, DISABLED, NORMAL, TclError, IntVar, StringVar, N,
-                     W, E, S, NW, Tk, filedialog, messagebox, Toplevel)  # , PhotoImage)
+                     W, E, S, NW, Tk, filedialog, messagebox, Toplevel, Image)  # , PhotoImage)
 from tkinter.ttk import Combobox
 import matplotlib
 import matplotlib.pyplot as plt
@@ -30,30 +32,30 @@ def merge_dicts(*dict_args):
     return result
 
 
-one_byte_frmt_list = ('uint8', 'sint8')
-two_byte_frmt_list = ('uint16', 'sint16', 'sm1k16', 'sm10k16', 'bin', 'hex', 'ascii')
-four_byte_frmt_list = ('uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32', 'sm10k32', 'float')
-six_byte_frmt_list = ('uint48', 'um1k48', 'sm1k48', 'um10k48', 'sm10k48')  # 'sint48' is not supported
-eight_byte_frmt_list = ('uint64', 'sint64', 'um1k64', 'sm1k64', 'um10k64', 'sm10k64', 'dbl', 'engy')
+# ONE_BYTE_FRMT_LIST = ('uint8', 'sint8')
+# two_byte_frmt_list = ('uint16', 'sint16', 'sm1k16', 'sm10k16', 'bin', 'hex', 'ascii')
+# four_byte_frmt_list = ('uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32', 'sm10k32', 'float')
+# six_byte_frmt_list = ('uint48', 'um1k48', 'sm1k48', 'um10k48', 'sm10k48')  # 'sint48' is not supported
+# eight_byte_frmt_list = ('uint64', 'sint64', 'um1k64', 'sm1k64', 'um10k64', 'sm10k64', 'dbl', 'engy')
 
-one_byte_format_dict = {'Unsigned Integer 8 bit': 'uint8', 'Signed Integer 8 Bit': 'sint8'}
-two_byte_format_dict = {'Binary 16 Bit': 'bin', 'Hexadecimal 16 Bit': 'hex', 'ASCII 16 Bit': 'ascii',
+ONE_BYTE_FORMAT_DICT = {'Unsigned Integer 8 bit': 'uint8', 'Signed Integer 8 Bit': 'sint8'}
+TWO_BYTE_FORMAT_DICT = {'Binary 16 Bit': 'bin', 'Hexadecimal 16 Bit': 'hex', 'ASCII 16 Bit': 'ascii',
                         'Unsigned Integer 16 Bit': 'uint16', 'Signed Integer 16 Bit': 'sint16',
                         'Signed Mod 1K 16 Bit': 'sm1k16', 'Signed Mod 10K 16 Bit': 'sm10k16'}
-four_byte_format_dict = {'Float 32 Bit': 'float', 'Unsigned Integer 32 Bit': 'uint32',
+FOUR_BYTE_FORMAT_DICT = {'Float 32 Bit': 'float', 'Unsigned Integer 32 Bit': 'uint32',
                          'Signed Integer 32 Bit': 'sint32', 'Unsigned Mod 1K 32 Bit': 'um1k32',
                          'Signed Mod 1K 32 Bit': 'sm1k32', 'Unsigned Mod 10K 32 Bit': 'um10k32',
                          'Signed Mod 10K 32 Bit': 'sm10k32'}
-six_byte_format_dict = {'Unsigned Integer 48 Bit': 'uint48', 'Unsigned Mod 1K 48 Bit': 'um1k48',
+SIX_BYTE_FORMAT_DICT = {'Unsigned Integer 48 Bit': 'uint48', 'Unsigned Mod 1K 48 Bit': 'um1k48',
                         'Signed Mod 1K 48 Bit': 'sm1k48', 'Unsigned Mod 10K 48 Bit': 'um10k48',
                         'Signed Mod 10K 48 Bit': 'sm10k48'}  # 'sint48' is not supported
-eight_byte_format_dict = {'Double 64 Bit': 'dbl', 'Eaton Energy 64 Bit': 'engy', 'Unsigned Integer 64 Bit': 'uint64',
+EIGHT_BYTE_FORMAT_DICT = {'Double 64 Bit': 'dbl', 'Eaton Energy 64 Bit': 'engy', 'Unsigned Integer 64 Bit': 'uint64',
                           'Signed Integer 64 Bit': 'sint64', 'Unsigned Mod 1K 64 Bit': 'um1k64',
                           'Signed Mod 1K 64 Bit': 'sm1k64', 'Unsigned Mod 10K 64 Bit': 'um10k64',
                           'Signed Mod 10K 64 Bit': 'sm10k64'}
 
-data_type_dict = merge_dicts(one_byte_format_dict, two_byte_format_dict, four_byte_format_dict, six_byte_format_dict,
-                             eight_byte_format_dict)
+DATA_TYPE_DICT = merge_dicts(ONE_BYTE_FORMAT_DICT, TWO_BYTE_FORMAT_DICT, FOUR_BYTE_FORMAT_DICT, SIX_BYTE_FORMAT_DICT,
+                             EIGHT_BYTE_FORMAT_DICT)
 
 
 def change_all_children_state(child_list, state):
@@ -64,36 +66,25 @@ def change_all_children_state(child_list, state):
             pass
 
 
-def adj_axes(lw, hg, typ, ctrl):
-    otpt = [lw, hg]
+def scale_axis(axis_low_val, axis_high_val, arrow_key, b_ctrl_key):
+    otpt = [axis_low_val, axis_high_val]
 
-    if typ in ('Up', 'Down', 'Left', 'Right'):  # , 'ctrl+Up', 'ctrl+Down', 'ctrl+Left', 'ctrl+Right'):
-        dif = abs(lw - hg) * 0.1
+    if arrow_key in ('Up', 'Down', 'Left', 'Right'):  # , 'ctrl+Up', 'ctrl+Down', 'ctrl+Left', 'ctrl+Right'):
+        axis_len = abs(axis_low_val - axis_high_val) * 0.1
         
-        if ctrl:  # if ctrl is selected
-            lw_dict = {'Up': 1, 'Down': -1, 'Left': -1, 'Right': 1}
-            hg_dict = {'Up': -1, 'Down': 1, 'Left': 1, 'Right': -1}
+        if b_ctrl_key:  # if ctrl is selected
+            low_val_dict = {'Up': 1, 'Down': -1, 'Left': -1, 'Right': 1}
+            high_val_dict = {'Up': -1, 'Down': 1, 'Left': 1, 'Right': -1}
         else:
-            lw_dict = {'Up': 1, 'Down': -1, 'Left': -1, 'Right': 1}
-            hg_dict = {'Up': 1, 'Down': -1, 'Left': -1, 'Right': 1}
+            low_val_dict = {'Up': 1, 'Down': -1, 'Left': -1, 'Right': 1}
+            high_val_dict = {'Up': 1, 'Down': -1, 'Left': -1, 'Right': 1}
 
-            # lw_dict = {'Up': 1, 'Down': -1, 'Left': -1, 'Right': 1, 'ctrl+Up': 1, 'ctrl+Down': -1, 'ctrl+Right': 1,
-            #            'ctrl+Left': -1}
-            # hg_dict = {'Up': 1, 'Down': -1, 'Left': -1, 'Right': 1, 'ctrl+Up': -1, 'ctrl+Down': 1, 'ctrl+Right': -1,
-            #            'ctrl+Left': 1}
-
-        if hg > lw:
-            otpt = [lw + lw_dict[typ]*dif, hg + hg_dict[typ]*dif]
+        if axis_high_val > axis_low_val:
+            otpt = [axis_low_val + low_val_dict[arrow_key] * axis_len, axis_high_val + high_val_dict[arrow_key] *
+                    axis_len]
         else:
-            otpt = [lw - (lw_dict[typ]*dif), hg - (hg_dict[typ]*dif)]
-
-        # ydif = abs(yl - yh) * 0.1
-        # if yh > yl:
-        #     a.set_ylim([yl + ydif, yh + ydif])
-        # else:
-        #     a.set_ylim([yl - ydif, yh - ydif])
-        # # print(yl, yh)
-        # canvas.draw()
+            otpt = [axis_low_val - (low_val_dict[arrow_key] * axis_len), axis_high_val - (high_val_dict[arrow_key] *
+                                                                                          axis_len)]
     else:
         pass
 
@@ -108,44 +99,44 @@ def _quit():
 class InputApp:
     def __init__(self, mstr):
         self.mstr = mstr
-        self.disp_app = DisplayApp(mstr)
+        self.display_app = DisplayApp(mstr)
         # Frame widgets
         self.input_frame = Frame(mstr, bd=2, relief=GROOVE)
-        butn_frame = Frame(self.input_frame)
+        button_frame = Frame(self.input_frame)
         # self.ex_frame = Frame(mstr)
 
         self.input_frame.grid(padx=5, pady=5)
-        butn_frame.grid(row=0, column=6, rowspan=2, columnspan=3)  # , padx=5, pady=5, sticky=NW)
+        button_frame.grid(row=0, column=6, rowspan=2, columnspan=3)  # , padx=5, pady=5, sticky=NW)
         # self.ex_frame.grid(row=1, columnspan=2)
         # self.ex_frame.grid_remove()
 
         # Variables
-        self.v_gt = IntVar()
-        self.v_ip = StringVar()
-        self.v_dev = StringVar()
-        self.v_pd = StringVar()
-        self.v_sreg = StringVar()
-        self.v_lreg = StringVar()
-        self.v_bs = IntVar()
-        self.v_ws = IntVar()
-        self.v_dtype = StringVar()
-        self.v_pts = StringVar()
-        self.v_prt = StringVar()
+        self.var_graph_otpt = IntVar()
+        self.var_ip = StringVar()
+        self.var_mbid = StringVar()
+        self.var_poll_delay = StringVar()
+        self.var_start_reg = StringVar()
+        self.var_num_regs = StringVar()
+        self.var_byte_swap = IntVar()
+        self.var_word_swap = IntVar()
+        self.var_data_type = StringVar()
+        # self.v_pts = StringVar()
+        self.var_port = StringVar()
 
-        self.ip_gd = False
-        self.dev_gd = False
-        self.sreg_gd = True
-        self.lreg_gd = True
-        self.pd_gd = True
-        self.pts_gd = True
-        self.gt_gd = True
+        self.b_ip_good = False
+        self.b_mbid_good = False
+        self.b_start_reg_good = True
+        self.b_num_regs_good = True
+        self.b_poll_delay_good = True
+        # self.pts_gd = True
+        self.b_graph_otpt_good = True
 
         # Labels
         Label(self.input_frame, text='IP:').grid(row=0, column=0, sticky=W)
         Label(self.input_frame, text='Device:').grid(row=1, column=0, sticky=W)
         Label(self.input_frame, text='Data Type:').grid(row=2, column=0, sticky=W)
         Label(self.input_frame, text='Starting Register:').grid(row=0, column=2, sticky=W)
-        self.l_reg = Label(self.input_frame, text='Number of Outputs:', width=16, anchor=W)
+        self.l_num_regs = Label(self.input_frame, text='Number of Outputs:', width=16, anchor=W)
         Label(self.input_frame, text='Graph Output:').grid(row=2, column=2, sticky=W)
         Label(self.input_frame, text='Poll Delay (ms):').grid(row=2, column=6, sticky=W)
         Label(self.input_frame, text='Byte Swap:').grid(row=1, column=4, sticky=W)
@@ -153,30 +144,30 @@ class InputApp:
         Label(self.input_frame, text='Port:').grid(row=0, column=4, sticky=W)
 
     # Entry widgets
-        self.e_ip = Entry(self.input_frame, width=22, textvariable=self.v_ip)
-        self.e_dev = Entry(self.input_frame, width=22, textvariable=self.v_dev)
-        self.e_sreg = Entry(self.input_frame, width=6, textvariable=self.v_sreg)
-        self.e_lreg = Entry(self.input_frame, width=6, textvariable=self.v_lreg)
-        self.e_pd = Entry(self.input_frame, width=6, textvariable=self.v_pd)
-        self.e_prt = Entry(self.input_frame, width=6, textvariable=self.v_prt)
+        self.e_ip = Entry(self.input_frame, width=22, textvariable=self.var_ip)
+        self.e_mbid = Entry(self.input_frame, width=22, textvariable=self.var_mbid)
+        self.e_start_reg = Entry(self.input_frame, width=6, textvariable=self.var_start_reg)
+        self.e_num_regs = Entry(self.input_frame, width=6, textvariable=self.var_num_regs)
+        self.e_poll_delay = Entry(self.input_frame, width=6, textvariable=self.var_poll_delay)
+        self.e_port = Entry(self.input_frame, width=6, textvariable=self.var_port)
     # Checkbutton widgets
-        ch_bs = Checkbutton(self.input_frame, variable=self.v_bs)  # .select and .deselect to change value
-        ch_ws = Checkbutton(self.input_frame, variable=self.v_ws)
-        self.ch_gt = Checkbutton(self.input_frame, variable=self.v_gt)
+        ch_byte_swap = Checkbutton(self.input_frame, variable=self.var_byte_swap)  # .select and .deselect to change value
+        ch_word_swap = Checkbutton(self.input_frame, variable=self.var_word_swap)
+        self.ch_graph_otpt = Checkbutton(self.input_frame, variable=self.var_graph_otpt)
     # Combobox widget
-        c_dtype = Combobox(self.input_frame, width=21, height=11, textvariable=self.v_dtype)
+        cb_data_type = Combobox(self.input_frame, width=21, height=11, textvariable=self.var_data_type)
     # Button widgets
-        self.b_start = Button(butn_frame, text='Start Polling', width=15, state=DISABLED, command=self.makeframe)
-        self.b_end = Button(butn_frame, text='Stop Polling', width=15, state=DISABLED, command=self.killframe)
-        self.b_func = Button(self.input_frame, text='Function 3', command=self.chg_func)
+        self.b_start = Button(button_frame, text='Start Polling', width=15, state=DISABLED, command=self.start_polling)
+        self.b_stop = Button(button_frame, text='Stop Polling', width=15, state=DISABLED, command=self.stop_polling)
+        self.b_func = Button(self.input_frame, text='Function 3', command=self.change_mb_function)
 
     # Entry widget default values
-        self.e_pd.insert(0, 1000)
-        self.e_sreg.insert(0, 1)
-        self.e_lreg.insert(0, 1)
-        self.e_prt.insert(0, 502)
+        self.e_poll_delay.insert(0, 1000)
+        self.e_start_reg.insert(0, 1)
+        self.e_num_regs.insert(0, 1)
+        self.e_port.insert(0, 502)
     # Combobox defualt values
-        c_dtype['values'] = ('Binary 16 Bit', 'Hexadecimal 16 Bit', 'ASCII 16 Bit', 'Float 32 Bit', 'Double 64 Bit',
+        cb_data_type['values'] = ('Binary 16 Bit', 'Hexadecimal 16 Bit', 'ASCII 16 Bit', 'Float 32 Bit', 'Double 64 Bit',
                              'Eaton Energy 64 Bit',
                              'Unsigned Integer  8 Bit', 'Unsigned Integer 16 Bit', 'Unsigned Integer 32 Bit',
                              'Unsigned Integer 48 Bit', 'Unsigned Integer 64 Bit',
@@ -189,118 +180,122 @@ class InputApp:
                              'Signed Mod 10K 16 Bit', 'Signed Mod 10K 32 Bit', 'Signed Mod 10K 48 Bit',
                              'Signed Mod 10K 64 Bit')
 
-        c_dtype.current(3)
+        cb_data_type.current(3)
 
     # Label widget grid
-        self.l_reg.grid(row=1, column=2, sticky=W)
+        self.l_num_regs.grid(row=1, column=2, sticky=W)
     # Entry widget grid
         self.e_ip.grid(row=0, column=1, padx=(0, 10), pady=(5, 0))
-        self.e_dev.grid(row=1, column=1, padx=(0, 10))
-        self.e_sreg.grid(row=0, column=3, padx=(0, 10), pady=(5, 0))
-        self.e_lreg.grid(row=1, column=3, padx=(0, 10))
-        self.e_pd.grid(row=2, column=7, pady=(0, 10), sticky=W)
-        self.e_prt.grid(row=0, column=5, padx=(0, 5), pady=(5, 0))
+        self.e_mbid.grid(row=1, column=1, padx=(0, 10))
+        self.e_start_reg.grid(row=0, column=3, padx=(0, 10), pady=(5, 0))
+        self.e_num_regs.grid(row=1, column=3, padx=(0, 10))
+        self.e_poll_delay.grid(row=2, column=7, pady=(0, 10), sticky=W)
+        self.e_port.grid(row=0, column=5, padx=(0, 5), pady=(5, 0))
     # Checkbutton grid
-        ch_bs.grid(row=1, column=5)
-        ch_ws.grid(row=2, column=5)
-        self.ch_gt.grid(row=2, column=3)
+        ch_byte_swap.grid(row=1, column=5)
+        ch_word_swap.grid(row=2, column=5)
+        self.ch_graph_otpt.grid(row=2, column=3)
     # Combobox grid
-        c_dtype.grid(row=2, column=1, padx=(0, 10))
+        cb_data_type.grid(row=2, column=1, padx=(0, 10))
     # Button grid
         self.b_start.grid(row=0, column=0, padx=5, pady=5)
-        self.b_end.grid(row=0, column=1, padx=5, pady=5)
+        self.b_stop.grid(row=0, column=1, padx=5, pady=5)
         self.b_func.grid(row=2, column=8, padx=(0, 5), pady=(0, 10), sticky=W+E)
 
     # Bindings
-        self.v_ip.trace('w', self.ip_chk)
-        self.v_dev.trace('w', self.dev_chk)
-        self.v_sreg.trace('w', self.strt_chk)
-        self.v_lreg.trace('w', self.lgth_chk)
-        self.v_pd.trace('w', self.pd_chk)
-        self.v_gt.trace('w', self.lgth_chk)
+        self.var_ip.trace('w', self.verify_ip)
+        self.var_mbid.trace('w', self.dev_chk)
+        self.var_start_reg.trace('w', self.strt_chk)
+        self.var_num_regs.trace('w', self.lgth_chk)
+        self.var_poll_delay.trace('w', self.pd_chk)
+        self.var_graph_otpt.trace('w', self.lgth_chk)
 
     # Set variables for testing
-        self.v_ip.set('10.166.6.67')
-        self.v_dev.set(9)
+        self.var_ip.set('10.166.6.67')
+        self.var_mbid.set(9)
 
-        self.func = 3
+        self.mb_func = 3
     #     self.v_ip.set('130.91.147.20')
     #     self.v_dev.set(10)
 
-    def makeframe(self):
+    def start_polling(self):
         self.b_start.configure(state=DISABLED)
-        self.b_end.configure(state=NORMAL)
+        self.b_stop.configure(state=NORMAL)
         change_all_children_state(self.input_frame.winfo_children(), DISABLED)
-        self.disp_app.makeframe(self.v_gt.get(), self.v_ip.get(), self.v_dev.get(), self.v_sreg.get(),
-                                self.v_lreg.get(), data_type_dict[self.v_dtype.get()], self.v_bs.get(), self.v_ws.get(),
-                                self.v_pd.get(), self.v_prt.get(), self.func)
+        self.display_app.makeframe(self.var_graph_otpt.get(), self.var_ip.get(), self.var_mbid.get(), self.var_start_reg.get(),
+                                   self.var_num_regs.get(), DATA_TYPE_DICT[self.var_data_type.get()], self.var_byte_swap.get(), self.var_word_swap.get(),
+                                   self.var_poll_delay.get(), self.var_port.get(), self.mb_func)
 
-    def killframe(self):
+    def stop_polling(self):
         self.b_start.configure(state=NORMAL)
-        self.b_end.configure(state=DISABLED)
+        self.b_stop.configure(state=DISABLED)
         change_all_children_state(self.input_frame.winfo_children(), NORMAL)
 
-        self.disp_app.killframe(self.v_gt.get())
+        self.display_app.killframe(self.var_graph_otpt.get())
 
-    def chg_func(self):
-        self.func = ((self.func - 2) % 4) + 3  # rotate through funcs 3, 4, 5, 6
-        func_text = 'Function ' + str(self.func)
-        self.b_func.configure(text=func_text)
+    def change_mb_function(self):
+        self.mb_func = ((self.mb_func - 2) % 4) + 3  # rotate through funcs 3, 4, 5, 6
+        func_btn_text = 'Function ' + str(self.mb_func)
+        self.b_func.configure(text=func_btn_text)
 
-        if self.func in (5, 6):
-            self.l_reg.configure(text='Value to write:')
-            self.ch_gt.configure(fg='red')
-            self.gt_gd = False
+        if self.mb_func in (5, 6):
+            self.l_num_regs.configure(text='Value to write:')
+            self.ch_graph_otpt.configure(fg='red')
+            self.b_graph_otpt_good = False
         else:
-            self.l_reg.configure(text='Number of Outputs:')
-            self.ch_gt.configure(fg='black')
-            self.gt_gd = True
+            self.l_num_regs.configure(text='Number of Outputs:')
+            self.ch_graph_otpt.configure(fg='black')
+            self.b_graph_otpt_good = True
 
         self.lgth_chk()
 
-    def ip_chk(self, *args):
-        iparr = self.v_ip.get().split(".")
-        ip_flg = True
+    def verify_ip(self, *args):
+        iparr = self.var_ip.get().split(".")
+        b_ip_flag = True
 
         if len(iparr) != 4:
             if len(iparr) == 1:
-                comports = list(serial.tools.list_ports.comports())
-                ip = self.v_ip.get().upper()
+                if os.name == 'nt':
+                    comports = list(serial.tools.list_ports.comports())
+                    port_name = self.var_ip.get().upper()
 
-                for ports in comports:
-                    if ip == ports[0]:
-                        # cmpt = int(ip[3:]) - 1
-                        break
+                    for ports in comports:
+                        if port_name == ports[0]:
+                            # cmpt = int(ip[3:]) - 1
+                            break
+                    else:
+                        b_ip_flag = False
                 else:
-                    ip_flg = False
+                    # going on faith alone at this point that the correct serial address is being used on a linux system
+                    pass
             else:
-                ip_flg = False
+                b_ip_flag = False
         else:
             for ch in iparr:
                 try:
                     if ch == '':
-                        ip_flg = False
+                        b_ip_flag = False
                         break
                     if int(ch) > 255 or int(ch) < 0:
-                        ip_flg = False
+                        b_ip_flag = False
                         break
                 except ValueError:
-                    ip_flg = False
+                    b_ip_flag = False
                     break
 
-        if ip_flg:
+        if b_ip_flag:
             self.e_ip.configure(fg='black')
-            self.ip_gd = True
+            self.b_ip_good = True
         else:
             self.e_ip.configure(fg='red')
-            self.ip_gd = False
+            self.b_ip_good = False
 
         self.all_chk()
 
     def dev_chk(self, *args):
         dev_flg = True
         try:
-            dev = int(self.v_dev.get())
+            dev = int(self.var_mbid.get())
         except ValueError:
             dev_flg = False
         else:
@@ -308,18 +303,18 @@ class InputApp:
                 dev_flg = False
 
         if dev_flg:
-            self.e_dev.configure(fg='black')
-            self.dev_gd = True
+            self.e_mbid.configure(fg='black')
+            self.b_mbid_good = True
         else:
-            self.e_dev.configure(fg='red')
-            self.dev_gd = False
+            self.e_mbid.configure(fg='red')
+            self.b_mbid_good = False
 
         self.all_chk()
 
     def strt_chk(self, *args):
         strt_flg = True
         try:
-            strt = int(self.v_sreg.get())
+            strt = int(self.var_start_reg.get())
         except ValueError:
             strt_flg = False
         else:
@@ -327,61 +322,61 @@ class InputApp:
                 strt_flg = False
 
         if strt_flg:
-            self.e_sreg.configure(fg='black')
-            self.sreg_gd = True
+            self.e_start_reg.configure(fg='black')
+            self.b_start_reg_good = True
         else:
-            self.e_sreg.configure(fg='red')
-            self.sreg_gd = False
+            self.e_start_reg.configure(fg='red')
+            self.b_start_reg_good = False
 
         self.all_chk()
 
     def lgth_chk(self, *args):
         lgth_flg = True
         try:
-            lgth = int(self.v_lreg.get())
+            lgth = int(self.var_num_regs.get())
         except ValueError:
             lgth_flg = False
         else:
-            if self.func in (3, 4):
-                if self.v_gt.get():
+            if self.mb_func in (3, 4):
+                if self.var_graph_otpt.get():
                     cap = 4
                 else:
                     cap = 80
 
                 if lgth < 1 or lgth > cap:
                     lgth_flg = False
-            elif self.func == 5:  # only 1 or 0
+            elif self.mb_func == 5:  # only 1 or 0
                 if lgth not in (0, 1):
                     lgth_flg = False
-            elif self.func == 6:
+            elif self.mb_func == 6:
                 if lgth < 0 or lgth > 65535:
                     lgth_flg = False
             else:
                 lgth_flg = False
 
         if lgth_flg:
-            self.e_lreg.configure(fg='black')
-            self.lreg_gd = True
+            self.e_num_regs.configure(fg='black')
+            self.b_num_regs_good = True
 
-            if self.v_gt.get():
-                if self.func in (3, 4):
-                    self.ch_gt.configure(fg='black')
-                    self.gt_gd = True
+            if self.var_graph_otpt.get():
+                if self.mb_func in (3, 4):
+                    self.ch_graph_otpt.configure(fg='black')
+                    self.b_graph_otpt_good = True
             else:
-                self.ch_gt.configure(fg='black')
-                self.gt_gd = True
+                self.ch_graph_otpt.configure(fg='black')
+                self.b_graph_otpt_good = True
         else:
-            self.e_lreg.configure(fg='red')
-            self.ch_gt.configure(fg='red')
-            self.lreg_gd = False
-            self.gt_gd = False
+            self.e_num_regs.configure(fg='red')
+            self.ch_graph_otpt.configure(fg='red')
+            self.b_num_regs_good = False
+            self.b_graph_otpt_good = False
 
         self.all_chk()
 
     def pd_chk(self, *args):
         pd_flg = True
         try:
-            pd = int(self.v_pd.get())
+            pd = int(self.var_poll_delay.get())
         except ValueError:
             pd_flg = False
         else:
@@ -389,16 +384,16 @@ class InputApp:
                 pd_flg = False
 
         if pd_flg:
-            self.e_pd.configure(fg='black')
-            self.pd_gd = True
+            self.e_poll_delay.configure(fg='black')
+            self.b_poll_delay_good = True
         else:
-            self.e_pd.configure(fg='red')
-            self.pd_gd = False
+            self.e_poll_delay.configure(fg='red')
+            self.b_poll_delay_good = False
 
         self.all_chk()
 
     def all_chk(self):
-        if self.ip_gd and self.dev_gd and self.sreg_gd and self.lreg_gd and self.pd_gd and self.gt_gd:
+        if self.b_ip_good and self.b_mbid_good and self.b_start_reg_good and self.b_num_regs_good and self.b_poll_delay_good and self.b_graph_otpt_good:
             self.b_start.configure(state=NORMAL)
         else:
             self.b_start.configure(state=DISABLED)
@@ -685,11 +680,11 @@ class DisplayApp:
         self.run_poller(False)
 
     def mk_lbls(self, strt, cnt):
-        if self.typ in two_byte_frmt_list:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
+        if self.typ in mb_poll.TWO_BYTE_FORMATS:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
             mlt = 1
-        elif self.typ in four_byte_frmt_list:  # ('uint32', 'sint32', 'float', 'mod10k'):
+        elif self.typ in mb_poll.FOUR_BYTE_FORMATS:  # ('uint32', 'sint32', 'float', 'mod10k'):
             mlt = 2
-        elif self.typ in six_byte_frmt_list:  # ('mod20k'):
+        elif self.typ in mb_poll.SIX_BYTE_FORMATS:  # ('mod20k'):
             mlt = 3
         else:  # ('mod30k', 'uint64', 'engy', 'dbl')
             mlt = 4
@@ -899,14 +894,14 @@ class DisplayApp:
                 if event.keysym in ('Up', 'Down'):  # , 'ctrl+up', 'ctrl+down'):
                     for i in range(minax, maxax):
                         lw, hg = self.fig.axes[i].get_ylim()
-                        new_lim = adj_axes(lw, hg, event.keysym, ctrl)
+                        new_lim = scale_axis(lw, hg, event.keysym, ctrl)
                         self.fig.axes[i].set_ylim(new_lim)
         
                     self.canvas.draw()
                 elif event.keysym in ('Left', 'Right'):  # , 'ctrl+left', 'ctrl+right'):
                     for i in range(minax, maxax):
                         lw, hg = self.fig.axes[i].get_xlim()
-                        new_lim = adj_axes(lw, hg, event.keysym, ctrl)
+                        new_lim = scale_axis(lw, hg, event.keysym, ctrl)
                         self.fig.axes[i].set_xlim(new_lim)
         
                     self.canvas.draw()
@@ -968,9 +963,9 @@ class ModbusPollThreadedTask(threading.Thread):
     def run(self):
         # run function overrides thread run method
         # print('start ', time())
-        otpt = modbus_poller(self.ip, self.dev, self.strt, self.lgth, data_type=self.dtype, b_byteswap=self.bs,
-                             b_wordswap=self.ws, mb_timeout=self.timeout, poll_delay=self.pd, port=self.prt,
-                             mb_func=self.func)
+        otpt = mb_poll.modbus_poller(self.ip, self.dev, self.strt, self.lgth, data_type=self.dtype, b_byteswap=self.bs,
+                                     b_wordswap=self.ws, mb_timeout=self.timeout, poll_delay=self.pd, port=self.prt,
+                                     mb_func=self.func)
         # print('finish', time(), '\n')
         self.queue.put((1, otpt))
 
@@ -979,18 +974,21 @@ matplotlib.use('TkAgg')
 
 root = Tk()
 root.title('PyBus Modbus Scanner')
-# root.resizable(width=FALSE, height=FALSE)
 root.resizable(width=False, height=False)
 root.protocol("WM_DELETE_WINDOW", _quit)
-# print(os.getcwd())
+
 if os.name == 'nt':
-    icopath = os.getcwd() + '/resources/Upenn16.ico'
+    icopath = sys.path[0] + '/resources/Upenn16.ico'
     root.iconbitmap(icopath)
 else:
     pass
-    # icopath = os.getcwd() + '/resources/Upenn64.png'
+    icopath = sys.path[0] + '/resources/Upenn64.png'
+    icon_img = Image('photo', file=icopath)
+    root.tk.call('wm', 'iconphoto', root._w, icon_img)
     # root.iconphoto(True, PhotoImage)
 
+    # img = Tkinter.Image("photo", file="appicon.gif")
+    # root.tk.call('wm','iconphoto',root._w,img)
 
 # disp_app_rt = DisplayApp(root)
 inpt_app_rt = InputApp(root)
