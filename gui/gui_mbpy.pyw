@@ -277,10 +277,14 @@ class InputApp:
                 ip_flg = False
         else:
             for ch in iparr:
-                if ch == '':
-                    ip_flg = False
-                    break
-                if int(ch) > 255 or int(ch) < 0:
+                try:
+                    if ch == '':
+                        ip_flg = False
+                        break
+                    if int(ch) > 255 or int(ch) < 0:
+                        ip_flg = False
+                        break
+                except ValueError:
                     ip_flg = False
                     break
 
