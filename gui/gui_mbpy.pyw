@@ -993,7 +993,8 @@ root.resizable(width=False, height=False)
 root.protocol("WM_DELETE_WINDOW", _quit)
 
 if os.name == 'nt':
-    icopath = sys.path[0] + '/resources/Upenn16.ico'
+    # icopath = sys.path[0] + '/resources/Upenn16.ico'
+    icopath = os.getcwd() + '/resources/Upenn16.ico'
     root.iconbitmap(icopath)
 else:
     pass

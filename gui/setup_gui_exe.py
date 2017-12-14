@@ -23,7 +23,7 @@ class Target(object):
         # self.copyright = "Copyright Company Name © 2013"
         # self.legal_copyright = "Copyright Company Name © 2013"
         # self.legal_trademark = ""
-        self.product_version = "1.0.0.0"
+        self.product_version = "1.1.0.0"
         self.product_name = "PyBus Modbus Scanner"
 
         self.private_build = "foo"

@@ -1,5 +1,6 @@
 #ignore __vm, Debug directories
 .idea/
+gui/dist/
 PyBus\ Modbus\ Scanner/
 PyBus\ Modbus\ Scanner\ Slim/
 __pycache__/

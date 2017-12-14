@@ -1,0 +1,3 @@
+while in PyBus/gui folder
+
+pyinstaller --add-data="./resources/*;resources" -i="./resources/Upenn16.ico" --noconsole -n="PyBus Modbus Poller" .\gui_mbpy.pyw
