@@ -890,7 +890,7 @@ def tick_poll_and_wait(cur_poll, num_polls, b_poll_forever, poll_start_time, pol
 # run script
 def modbus_poller(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, data_type='float', b_byteswap=False,
                   b_wordswap=False, zero_based=False, mb_timeout=1500, file_name_input=None, verbosity=None, port=502,
-                  poll_delay=1000, mb_func=3, pi_pin_cntl=None, b_raw_bytes=False):
+                  poll_delay=1000, mb_func=3, pi_pin_cntl=None, b_pi_pin_cleanup=True, b_raw_bytes=False):
 
     if b_help:
         print('Polls a modbus device through network.',
@@ -1166,7 +1166,7 @@ def modbus_poller(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, dat
     if csv_file_wrtr is not None:
         csv_file.close()
 
-    if pi_pin_cntl is not None and B_RPI_GPIO_EXISTS:
+    if B_RPI_GPIO_EXISTS and pi_pin_cntl is not None and b_pi_pin_cleanup:
         GPIO.cleanup()
 
     return mb_data.get_value_array()
@@ -1203,6 +1203,8 @@ if __name__ == '__main__':
     parser.add_argument('-pin', '--pin_cntl', type=pin_cntl_bw, default=None,
                         help='Pin control for 485 chip on Raspberry Pi hat. Only used for serial.  Use Board pin '
                              'numbers.  Default is None.')
+    parser.add_argument('-pc', '--no_pin_cleanup', action='store_false',
+                        help='Does not call GPIO.cleanup() at end. Good if pins are being used elsewhere.')
     parser.add_argument('-rb', '--raw_bytes', action='store_true',
                         help='Returns raw bytes after any necessary byte or word swaps.')
 
@@ -1213,6 +1215,6 @@ if __name__ == '__main__':
                                  b_byteswap=args.byteswap, b_wordswap=args.wordswap, zero_based=args.zbased,
                                  mb_timeout=args.timeout, file_name_input=args.file, verbosity=args.verbose, port=args.port,
                                  poll_delay=args.pdelay, mb_func=args.func, pi_pin_cntl=args.pin_cntl,
-                                 b_raw_bytes=args.raw_bytes)
+                                 b_pi_pin_cleanup=args.no_pin_cleanup, b_raw_bytes=args.raw_bytes)
 
     print(poll_results)
