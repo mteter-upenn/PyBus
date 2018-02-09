@@ -1166,7 +1166,7 @@ def modbus_poller(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, dat
     if csv_file_wrtr is not None:
         csv_file.close()
 
-    if B_RPI_GPIO_EXISTS and b_pi_pin_cleanup:
+    if B_RPI_GPIO_EXISTS and pi_pin_cntl is not None and b_pi_pin_cleanup:
         GPIO.cleanup()
 
     return mb_data.get_value_array()
@@ -1204,7 +1204,7 @@ if __name__ == '__main__':
                         help='Pin control for 485 chip on Raspberry Pi hat. Only used for serial.  Use Board pin '
                              'numbers.  Default is None.')
     parser.add_argument('-pc', '--no_pin_cleanup', action='store_false',
-                        help='Does not call GPIO.cleanup() at end. Good if pins are being used elsewhere.')
+                        help='Does not call GPIO.cleanup() at end and will leave pin_cntl at previous value.')
     parser.add_argument('-rb', '--raw_bytes', action='store_true',
                         help='Returns raw bytes after any necessary byte or word swaps.')
 
