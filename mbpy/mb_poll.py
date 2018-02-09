@@ -1166,7 +1166,7 @@ def modbus_poller(ip, mb_id, start_reg, num_vals, b_help=False, num_polls=1, dat
     if csv_file_wrtr is not None:
         csv_file.close()
 
-    if B_RPI_GPIO_EXISTS and pi_pin_cntl is not None and b_pi_pin_cleanup:
+    if B_RPI_GPIO_EXISTS and b_pi_pin_cleanup:
         GPIO.cleanup()
 
     return mb_data.get_value_array()
