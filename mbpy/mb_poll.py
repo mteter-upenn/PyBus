@@ -143,8 +143,8 @@ def calc_crc_byte_array(st, start_crc=0xFFFF):
 # bandwidth checks for input variables:
 def device_bw(x):
     x = int(x)
-    if x < 1 or x > 255:
-        raise argparse.ArgumentTypeError("Device ID must be between [1, 255].")
+    if x < 0 or x > 255:
+        raise argparse.ArgumentTypeError("Device ID must be between [0, 255].")
     return x
 
 

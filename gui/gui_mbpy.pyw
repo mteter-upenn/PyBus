@@ -303,7 +303,7 @@ class InputApp:
         except ValueError:
             b_mbid_flag = False
         else:
-            if mbid < 1 or mbid > 255:
+            if mbid < 0 or mbid > 255:
                 b_mbid_flag = False
 
         if b_mbid_flag:
@@ -988,7 +988,7 @@ class ModbusPollThreadedTask(threading.Thread):
 matplotlib.use('TkAgg')
 
 root = Tk()
-root.title('PyBus Modbus Scanner')
+root.title('PyBus Modbus Scanner v1.1.2')
 root.resizable(width=False, height=False)
 root.protocol("WM_DELETE_WINDOW", _quit)
 

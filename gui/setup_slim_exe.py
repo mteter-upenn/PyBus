@@ -18,13 +18,13 @@ class Target(object):
         # that make sense:
         
         # The 'version' attribute MUST be defined, otherwise no versioninfo will be built:
-        self.version = "1.0"
+        self.version = "1.1.2"
         
         self.company_name = "University of Pennsylvania FRES"
         # self.copyright = "Copyright Company Name © 2013"
         # self.legal_copyright = "Copyright Company Name © 2013"
         # self.legal_trademark = ""
-        self.product_version = "1.0.0.0"
+        self.product_version = "1.1.2"
         self.product_name = "PyBus Modbus Scanner Slim Version"
 
         self.private_build = "foo"

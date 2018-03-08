@@ -298,7 +298,7 @@ class InputApp:
         except ValueError:
             dev_flg = False
         else:
-            if dev < 1 or dev > 255:
+            if dev < 0 or dev > 255:
                 dev_flg = False
 
         if dev_flg:
@@ -961,7 +961,7 @@ class ThreadedTask(threading.Thread):
 # matplotlib.use('TkAgg')
 
 root = Tk()
-root.title('PyBus Modbus Slim Scanner')
+root.title('PyBus Modbus Slim Scanner v1.1.2')
 # root.resizable(width=FALSE, height=FALSE)
 root.resizable(width=False, height=False)
 root.protocol("WM_DELETE_WINDOW", _quit)
