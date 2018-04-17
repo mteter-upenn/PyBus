@@ -38,7 +38,7 @@ def merge_dicts(*dict_args):
 # six_byte_frmt_list = ('uint48', 'um1k48', 'sm1k48', 'um10k48', 'sm10k48')  # 'sint48' is not supported
 # eight_byte_frmt_list = ('uint64', 'sint64', 'um1k64', 'sm1k64', 'um10k64', 'sm10k64', 'dbl', 'engy')
 
-ONE_BYTE_FORMAT_DICT = {'Unsigned Integer 8 bit': 'uint8', 'Signed Integer 8 Bit': 'sint8'}
+ONE_BYTE_FORMAT_DICT = {'Unsigned Integer 8 Bit': 'uint8', 'Signed Integer 8 Bit': 'sint8'}
 TWO_BYTE_FORMAT_DICT = {'Binary 16 Bit': 'bin', 'Hexadecimal 16 Bit': 'hex', 'ASCII 16 Bit': 'ascii',
                         'Unsigned Integer 16 Bit': 'uint16', 'Signed Integer 16 Bit': 'sint16',
                         'Signed Mod 1K 16 Bit': 'sm1k16', 'Signed Mod 10K 16 Bit': 'sm10k16'}
@@ -171,9 +171,9 @@ class InputApp:
     # Combobox defualt values
         cb_data_type['values'] = ('Binary 16 Bit', 'Hexadecimal 16 Bit', 'ASCII 16 Bit', 'Float 32 Bit',
                                   'Double 64 Bit', 'Eaton Energy 64 Bit',
-                                  'Unsigned Integer  8 Bit', 'Unsigned Integer 16 Bit', 'Unsigned Integer 32 Bit',
+                                  'Unsigned Integer 8 Bit', 'Unsigned Integer 16 Bit', 'Unsigned Integer 32 Bit',
                                   'Unsigned Integer 48 Bit', 'Unsigned Integer 64 Bit',
-                                  'Signed Integer  8 Bit', 'Signed Integer 16 Bit', 'Signed Integer 32 Bit',
+                                  'Signed Integer 8 Bit', 'Signed Integer 16 Bit', 'Signed Integer 32 Bit',
                                   'Signed Integer 48 Bit', 'Signed Integer 64 Bit',
                                   'Unsigned Mod 1K 32 Bit', 'Unsigned Mod 1K 48 Bit', 'Unsigned Mod 1K 64 Bit',
                                   'Signed Mod 1K 16 Bit', 'Signed Mod 1K 32 Bit', 'Signed Mod 1K 48 Bit',
@@ -484,6 +484,7 @@ class DisplayApp:
         # self.otpt = [[] for _ in range(5)]
         self.otpt_data = []
         self.otpt_errs = []
+        self.otpt_start_strs = []
         self.graph_figure.add_subplot(111)
         self.graph_figure.axes[0].set_autoscalex_on(False)
         self.graph_figure.autofmt_xdate(rotation=45)
@@ -649,6 +650,7 @@ class DisplayApp:
 
         self.otpt_data = [[] for _ in range(self.num_vals + 1)]
         self.otpt_errs = [[] for _ in range(3)]
+        self.otpt_start_strs = ['' for _ in range(self.num_vals)]
 
         self.queue = queue.PriorityQueue()
 
@@ -686,12 +688,15 @@ class DisplayApp:
             self.text_mstr_frame.grid_remove()
 
         self.otpt_data = []
+        self.otpt_start_strs = []
         self.otpt_errs = []
         self.run_poller(True)
 
     def init_otpt_labels(self, num_otpts):
         start_reg = self.start_reg
-        if self.data_type in mb_poll.TWO_BYTE_FORMATS:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
+        if self.data_type in mb_poll.ONE_BYTE_FORMATS:
+            regs_per_val = 0.5
+        elif self.data_type in mb_poll.TWO_BYTE_FORMATS:  # ('bin', 'hex', 'ascii', 'uint16', 'sint16'):
             regs_per_val = 1
         elif self.data_type in mb_poll.FOUR_BYTE_FORMATS:  # ('uint32', 'sint32', 'float', 'mod10k'):
             regs_per_val = 2
@@ -774,8 +779,9 @@ class DisplayApp:
             lbl_row = (ii % 10) + row_offset
             reg_str = str(start_reg + ii * regs_per_val)
             self.otpt_data[ii].append(reg_str)
+            self.otpt_start_strs[ii] = reg_str + ': '
 
-            lbl = Label(otpt_frame, text=reg_str + ': ', width=19, anchor=W)
+            lbl = Label(otpt_frame, text=self.otpt_start_strs[ii], width=26, anchor=W)
             self.otpt_lbls.append(lbl)
             lbl.grid(row=lbl_row, column=lbl_col, padx=(0, col_offset), sticky=W)
 
@@ -802,13 +808,17 @@ class DisplayApp:
     def write_otpt_to_labels(self, data):
         if len(self.otpt_lbls) == len(data):
             # handle data
+
             for ii in range(len(self.otpt_lbls)):
                 if self.data_type in ('bin', 'hex', 'ascii'):
-                    otpt_str = self.otpt_lbls[ii].cget('text')[:7] + data[ii]
+                    # otpt_str = self.otpt_lbls[ii].cget('text')[:7] + str(data[ii])
+                    otpt_str = self.otpt_start_strs[ii] + str(data[ii])
                 elif self.data_type in ('float', 'dbl'):
-                    otpt_str = self.otpt_lbls[ii].cget('text')[:7] + '%.2f' % data[ii]
+                    # otpt_str = self.otpt_lbls[ii].cget('text')[:7] + '%.2f' % data[ii]
+                    otpt_str = self.otpt_start_strs[ii] + '%.2f' % data[ii]
                 else:
-                    otpt_str = self.otpt_lbls[ii].cget('text')[:7] + '%.0f' % data[ii]
+                    # otpt_str = self.otpt_lbls[ii].cget('text')[:7] + '%.0f' % data[ii]
+                    otpt_str = self.otpt_start_strs[ii] + '%.0f' % data[ii]
                 self.otpt_lbls[ii].configure(text=otpt_str)
                 self.otpt_data[ii].append(data[ii])
 

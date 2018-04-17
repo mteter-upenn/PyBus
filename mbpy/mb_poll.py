@@ -414,7 +414,7 @@ class ModbusData:
                         if self.b_print in (1, 3):
                             print(ERASE_LINE, end='\r')
                         print(iter_reg, ":", self._value_array[-1])
-                    iter_reg += 1
+                        iter_reg += 1
             else:
                 for r0 in raw_regs:
                     if self.data_type == 'uint8':
@@ -439,7 +439,7 @@ class ModbusData:
                         if self.b_print in (1, 3):
                             print(ERASE_LINE, end='\r')
                         print(iter_reg, ":", self._value_array[-1])
-                    iter_reg += 1
+                        iter_reg += 1
             else:
                 for r0 in raw_regs:  # , self.pckt[2::4], self.pckt[3::4]):
                     if self.data_type == 'bin':
@@ -473,13 +473,16 @@ class ModbusData:
                             # print(i, ":", format(self.valarr[-1], '#018b'))
                             print(iter_reg, ": 0b", format((self._value_array[-1] >> 8) & 0xff, '08b'),
                                   format(self._value_array[-1] & 0xff, '08b'))
-                            self._value_array[-1] = bin(self._value_array[-1])
                         elif self.data_type == 'hex':
                             print(iter_reg, ":", format(self._value_array[-1], '#06x'))
-                            self._value_array[-1] = hex(self._value_array[-1])
                         else:
                             print(iter_reg, ":", self._value_array[-1])
                         iter_reg += 1
+
+                    if self.data_type == 'bin':
+                        self._value_array[-1] = bin(self._value_array[-1])
+                    elif self.data_type == 'hex':
+                        self._value_array[-1] = hex(self._value_array[-1])
         elif self.data_type in FOUR_BYTE_FORMATS:
             # ('float', 'uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32','sm10k32'):
             if self.word_swap:
@@ -490,17 +493,18 @@ class ModbusData:
                     self._value_array.append((mb_reg >> 8) & 0xff)
                     self._value_array.append(mb_reg & 0xff)
 
-                    if self.b_print is not None:
-                        if self.b_print in (1, 3):
-                            print(ERASE_LINE, end='\r')
-                        print(iter_reg, ":", self._value_array[-2])
-                    iter_reg += 1
+                    for qck_regs in range(-2, 0):
+                        if self.b_print is not None:
+                            if self.b_print in (1, 3):
+                                print(ERASE_LINE, end='\r')
+                            print(iter_reg, ":", self._value_array[qck_regs])
+                            iter_reg += 1
 
-                    if self.b_print is not None:
-                        if self.b_print in (1, 3):
-                            print(ERASE_LINE, end='\r')
-                        print(iter_reg, ":", self._value_array[-1])
-                    iter_reg += 1
+                    # if self.b_print is not None:
+                    #     if self.b_print in (1, 3):
+                    #         print(ERASE_LINE, end='\r')
+                    #     print(iter_reg, ":", self._value_array[-1])
+                    #     iter_reg += 1
             else:
                 for r0, r1 in zip(raw_regs[::2], raw_regs[1::2]):  # , self.pckt[2::4], self.pckt[3::4]):
                     if self.data_type == 'uint32':
@@ -540,17 +544,12 @@ class ModbusData:
                     self._value_array.append((mb_reg >> 8) & 0xff)
                     self._value_array.append(mb_reg & 0xff)
 
-                    if self.b_print is not None:
-                        if self.b_print in (1, 3):
-                            print(ERASE_LINE, end='\r')
-                        print(iter_reg, ":", self._value_array[-2])
-                    iter_reg += 1
-
-                    if self.b_print is not None:
-                        if self.b_print in (1, 3):
-                            print(ERASE_LINE, end='\r')
-                        print(iter_reg, ":", self._value_array[-1])
-                    iter_reg += 1
+                    for qck_regs in range(-2, 0):
+                        if self.b_print is not None:
+                            if self.b_print in (1, 3):
+                                print(ERASE_LINE, end='\r')
+                            print(iter_reg, ":", self._value_array[qck_regs])
+                            iter_reg += 1
             else:
                 for r0, r1, r2 in zip(raw_regs[::3], raw_regs[1::3], raw_regs[2::3]):
                     if self.data_type == 'uint48':
@@ -591,17 +590,12 @@ class ModbusData:
                     self._value_array.append((mb_reg >> 8) & 0xff)
                     self._value_array.append(mb_reg & 0xff)
 
-                    if self.b_print is not None:
-                        if self.b_print in (1, 3):
-                            print(ERASE_LINE, end='\r')
-                        print(iter_reg, ":", self._value_array[-2])
-                    iter_reg += 1
-
-                    if self.b_print is not None:
-                        if self.b_print in (1, 3):
-                            print(ERASE_LINE, end='\r')
-                        print(iter_reg, ":", self._value_array[-1])
-                    iter_reg += 1
+                    for qck_regs in range(-2, 0):
+                        if self.b_print is not None:
+                            if self.b_print in (1, 3):
+                                print(ERASE_LINE, end='\r')
+                            print(iter_reg, ":", self._value_array[qck_regs])
+                            iter_reg += 1
             else:
                 for r0, r1, r2, r3 in zip(raw_regs[::4], raw_regs[1::4], raw_regs[2::4], raw_regs[3::4]):
                     if self.data_type == 'uint64':
