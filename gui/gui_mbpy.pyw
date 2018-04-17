@@ -998,7 +998,7 @@ class ModbusPollThreadedTask(threading.Thread):
 matplotlib.use('TkAgg')
 
 root = Tk()
-root.title('PyBus Modbus Scanner v1.1.2')
+root.title('PyBus Modbus Scanner v1.1.3')
 root.resizable(width=False, height=False)
 root.protocol("WM_DELETE_WINDOW", _quit)
 

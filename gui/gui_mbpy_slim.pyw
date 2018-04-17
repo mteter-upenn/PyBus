@@ -36,7 +36,7 @@ four_byte_frmt_list = ('uint32', 'sint32', 'um1k32', 'sm1k32', 'um10k32', 'sm10k
 six_byte_frmt_list = ('uint48', 'um1k48', 'sm1k48', 'um10k48', 'sm10k48')  # 'sint48' is not supported
 eight_byte_frmt_list = ('uint64', 'sint64', 'um1k64', 'sm1k64', 'um10k64', 'sm10k64', 'dbl', 'engy')
 
-one_byte_formats = {'Unsigned Integer 8 bit': 'uint8', 'Signed Integer 8 Bit': 'sint8'}
+one_byte_formats = {'Unsigned Integer 8 Bit': 'uint8', 'Signed Integer 8 Bit': 'sint8'}
 two_byte_formats = {'Binary 16 Bit': 'bin', 'Hexadecimal 16 Bit': 'hex', 'ASCII 16 Bit': 'ascii',
                     'Unsigned Integer 16 Bit': 'uint16', 'Signed Integer 16 Bit': 'sint16',
                     'Signed Mod 1K 16 Bit': 'sm1k16', 'Signed Mod 10K 16 Bit': 'sm10k16'}
@@ -176,9 +176,9 @@ class InputApp:
     # Combobox defualt values
         c_dtype['values'] = ('Binary 16 Bit', 'Hexadecimal 16 Bit', 'ASCII 16 Bit', 'Float 32 Bit', 'Double 64 Bit',
                              'Eaton Energy 64 Bit',
-                             'Unsigned Integer  8 Bit', 'Unsigned Integer 16 Bit', 'Unsigned Integer 32 Bit',
+                             'Unsigned Integer 8 Bit', 'Unsigned Integer 16 Bit', 'Unsigned Integer 32 Bit',
                              'Unsigned Integer 48 Bit', 'Unsigned Integer 64 Bit',
-                             'Signed Integer  8 Bit', 'Signed Integer 16 Bit', 'Signed Integer 32 Bit',
+                             'Signed Integer 8 Bit', 'Signed Integer 16 Bit', 'Signed Integer 32 Bit',
                              'Signed Integer 48 Bit', 'Signed Integer 64 Bit',
                              'Unsigned Mod 1K 32 Bit', 'Unsigned Mod 1K 48 Bit', 'Unsigned Mod 1K 64 Bit',
                              'Signed Mod 1K 16 Bit', 'Signed Mod 1K 32 Bit', 'Signed Mod 1K 48 Bit',
