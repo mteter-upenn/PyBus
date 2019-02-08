@@ -422,7 +422,7 @@ class DisplayApp:
         self.graph_btn_subfrm = Frame(self.graph_mstr_frame, bd=2, relief=GROOVE)
         self.graph_figure = plt.figure(1, figsize=(6.2, 5), dpi=100, tight_layout=True)
         self.graph_canvas = FigureCanvasTkAgg(self.graph_figure, master=self.graph_mstr_frame)
-        self.graph_canvas.show()
+        self.graph_canvas.draw()  # show()
 
         # self.canvas.mpl_connect('key_press_event', self.on_key_event)
 
