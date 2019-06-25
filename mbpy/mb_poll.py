@@ -150,7 +150,7 @@ def device_bw(x):
 
 def validate_device_id(dev):
     dev = int(dev)
-    if dev < 1 or dev > 255:
+    if dev < 0 or dev > 255:
         return None, MB_ERR_DICT[10]  # gateway path unavailable
     return dev, None
 
