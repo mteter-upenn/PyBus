@@ -735,24 +735,47 @@ def make_request_packet(serial_port, b_write_mb, mb_id, mb_func, start_reg_zero,
         req_packet[9] = start_reg_zero & 0xFF  # LOW register
         if b_write_mb:
             if mb_func == 16:
-                req_packet[5] = 15 & 0xFF
-                req_packet[10] = 0 & 0xFF  # HIGH number of registers
-                req_packet[11] = 4 & 0xFF  # LOW number of registers
+                meter_type_16 = 'ge_3720'
+                if meter_type_16 == 'siemens_brkr':
+                    req_packet[5] = 9 & 0xFF  # total byte length - 6
+                    req_packet[10] = (1 >> 8) & 0xFF  # HIGH number of registers
+                    req_packet[11] = 1 & 0xFF  # LOW number of registers
 
-                req_packet[12] = 8 & 0xFF  # number of bytes
+                    req_packet[12] = 2 & 0xFF  # number of bytes
 
-                # should be wrt here, currently trying to set modbus map for siemens breaker
-                req_packet[13] = (59492 >> 8) & 0xFF
-                req_packet[14] = 59492 & 0xFF
+                    # should be wrt here, currently trying to set modbus map for siemens breaker
+                    req_packet[13] = (57394 >> 8) & 0xFF
+                    req_packet[14] = (57394 & 0xFF)
 
-                req_packet[15] = (3 >> 8) & 0xFF
-                req_packet[16] = 3 & 0xFF
+                    # req_packet[13] = (57395 >> 8) & 0xFF
+                    # req_packet[14] = (57395 & 0xFF)
+                elif meter_type_16 == 'micrologic':
+                    req_packet[5] = 15 & 0xFF  # total byte length - 6
+                    req_packet[10] = 0 & 0xFF  # HIGH number of registers
+                    req_packet[11] = 4 & 0xFF  # LOW number of registers
 
-                req_packet[17] = (8 >> 8) & 0xFF
-                req_packet[18] = 8 & 0xFF
+                    req_packet[12] = 8 & 0xFF  # number of bytes
 
-                req_packet[19] = (47368 >> 8) & 0xFF
-                req_packet[20] = 47368 & 0xFF
+                    req_packet[13] = (53492 >> 8) & 0xFF
+                    req_packet[14] = (53492 & 0xFF)
+
+                    req_packet[15] = (3 >> 8) & 0xFF
+                    req_packet[16] = 3 & 0xFF
+
+                    req_packet[17] = (8 >> 8) & 0xFF
+                    req_packet[18] = 8 & 0xFF
+
+                    req_packet[19] = (11924 >> 8) & 0xFF
+                    req_packet[20] = (11924 & 0xFF)
+                elif meter_type_16 == 'ge_3720':
+                    req_packet[5] = 9 & 0xFF  # total byte length - 6
+                    req_packet[10] = (1 >> 8) & 0xFF  # HIGH number of registers
+                    req_packet[11] = 1 & 0xFF  # LOW number of registers
+
+                    req_packet[12] = 2 & 0xFF  # number of bytes
+
+                    req_packet[13] = (3 >> 8) & 0xFF
+                    req_packet[14] = (3 & 0xFF)
 
                 # packet[5] = 15 & 0xff
                 # packet[10] = 0 & 0xff  # HIGH registers
@@ -853,6 +876,7 @@ def verify_no_modbus_errs(recv_packet, mb_id, mb_func, val_to_write, b_write_mb,
                         register_list = [0, val_to_write]
                 else:
                     error_code = MB_ERR_DICT[111]
+                    print('first', recv_packet)
             else:
                 if recv_packet[2] == (len(recv_packet) - 3):  # check length of modbus message
                     register_list = recv_packet[3:]
@@ -864,6 +888,7 @@ def verify_no_modbus_errs(recv_packet, mb_id, mb_func, val_to_write, b_write_mb,
             error_code = MB_ERR_DICT[110]  # UNEXPECTED MODBUS FUNCTION RETURNED
     else:
         error_code = MB_ERR_DICT[111]  # UNEXPECTED MODBUS SLAVE DEVICE MESSAGE
+        print('second', recv_packet)
 
     return error_code, register_list
 
